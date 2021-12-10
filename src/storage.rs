@@ -57,7 +57,7 @@ pub struct Instance {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     pub username: String,
-    pub password: String,
+    pub password_hash: String,
     pub cpu_quota: usize,
     pub memory_quota: usize,
     pub disk_quota: usize,

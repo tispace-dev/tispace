@@ -1,5 +1,7 @@
 use hyper::body::Buf;
 use hyper::{Body, Method, Request, Response, StatusCode};
+
+use crypto::pbkdf2::{pbkdf2_check, pbkdf2_simple};
 use percent_encoding::percent_decode;
 
 use crate::error::*;
@@ -49,10 +51,12 @@ impl HttpService {
         }
         let mut verified = false;
         self.storage.read_only(|state| {
-            verified = state
-                .users
-                .iter()
-                .any(|u| u.username == req_json.username && u.password == req_json.password);
+            verified = state.users.iter().any(|u| {
+                u.username == req_json.username
+                    && pbkdf2_check(&req_json.password, &u.password_hash)
+                        .ok()
+                        .unwrap()
+            });
         });
         if verified {
             // FIXME: token should encrypted with a secret key.
@@ -105,8 +109,7 @@ impl HttpService {
             .read_write(|state| {
                 for u in &mut state.users {
                     if u.username == username {
-                        // FIXME: do not store plain password.
-                        u.password = req_json.new_password.clone();
+                        u.password_hash = pbkdf2_simple(&req_json.new_password, 1024).unwrap();
                         return true;
                     }
                 }
