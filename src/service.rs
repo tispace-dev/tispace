@@ -104,15 +104,15 @@ impl HttpService {
             return write_error(StatusCode::BAD_REQUEST, "new_password is empty");
         }
         self.storage
-            .read_write(|state| {
-                for u in &mut state.users {
-                    if u.username == username {
+            .read_write(
+                |state| match state.users.iter_mut().find(|u| u.username == username) {
+                    Some(u) => {
                         u.password_hash = pbkdf2_simple(&params.new_password, 1024).unwrap();
-                        return true;
+                        true
                     }
-                }
-                false
-            })
+                    None => false,
+                },
+            )
             .await?;
         write_code(StatusCode::NO_CONTENT)
     }
@@ -143,9 +143,9 @@ impl HttpService {
         let mut quota_exceeded = false;
         let mut created = false;
         self.storage
-            .read_write(|state| {
-                for u in &mut state.users {
-                    if u.username == username {
+            .read_write(
+                |state| match state.users.iter_mut().find(|u| u.username == username) {
+                    Some(u) => {
                         if u.instances.len() + 1 > u.instance_quota {
                             quota_exceeded = true;
                             return false;
@@ -179,11 +179,11 @@ impl HttpService {
                             status: InstanceStatus::Pending,
                         });
                         created = true;
-                        return true;
+                        created
                     }
-                }
-                false
-            })
+                    None => false,
+                },
+            )
             .await?;
 
         if already_exists {
@@ -214,24 +214,23 @@ impl HttpService {
             .to_string();
 
         self.storage
-            .read_write(|state| {
-                for u in &mut state.users {
-                    if u.username == username {
-                        for instance in &mut u.instances {
-                            if instance.name == instance_name {
-                                return if instance.stage != InstanceStage::Deleting {
-                                    instance.stage = InstanceStage::Deleting;
-                                    true
-                                } else {
-                                    false
-                                };
+            .read_write(
+                |state| match state.users.iter_mut().find(|u| u.username == username) {
+                    Some(u) => {
+                        match u.instances.iter_mut().find(|instance| {
+                            instance.name == instance_name
+                                && instance.stage != InstanceStage::Deleting
+                        }) {
+                            Some(instance) => {
+                                instance.stage = InstanceStage::Deleting;
+                                true
                             }
+                            None => false,
                         }
-                        return false;
                     }
-                }
-                false
-            })
+                    None => false,
+                },
+            )
             .await?;
         write_code(StatusCode::NO_CONTENT)
     }
@@ -244,11 +243,13 @@ impl HttpService {
         let username = username.unwrap();
         let mut http_instances = Vec::new();
         self.storage
-            .read_only(|state| {
-                for u in &state.users {
-                    if u.username == username {
-                        for instance in &u.instances {
-                            http_instances.push(HttpInstance {
+            .read_only(
+                |state| match state.users.iter().find(|&u| u.username == username) {
+                    Some(u) => {
+                        http_instances = u
+                            .instances
+                            .iter()
+                            .map(|instance| HttpInstance {
                                 name: instance.name.clone(),
                                 cpu: instance.cpu,
                                 memory: instance.memory,
@@ -256,11 +257,11 @@ impl HttpService {
                                 domain_name: instance.domain_name.clone(),
                                 status: instance.status.to_string(),
                             })
-                        }
-                        return;
+                            .collect();
                     }
-                }
-            })
+                    None => (),
+                },
+            )
             .await;
         let resp = ListInstancesResponse {
             instances: http_instances,

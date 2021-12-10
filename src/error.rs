@@ -9,6 +9,7 @@ pub struct Error {
     detail: String,
 }
 
+#[allow(dead_code)]
 impl Error {
     pub fn new(detail: &str) -> Self {
         Error {
