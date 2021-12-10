@@ -11,7 +11,7 @@ impl Operator {
 
     pub async fn run(&self) {
         loop {
-            let _state = self.storage.dump();
+            let _state = self.storage.snapshot();
             // For each instance.
             // 1. Ensure namespace is created.
             // 2. Ensure rootfs is initialized.

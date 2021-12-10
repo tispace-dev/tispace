@@ -1,9 +1,10 @@
 use std::fmt;
 use std::fmt::Formatter;
 use std::io::ErrorKind;
-use std::sync::{Arc, RwLock};
 
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::error::*;
 
@@ -77,14 +78,14 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Storage {
     path: String,
     state: Arc<RwLock<State>>,
 }
 
 impl Storage {
-    pub async fn from_path(path: &str) -> Result<Self> {
+    pub async fn load(path: &str) -> Result<Self> {
         let mut state = State::new();
         match tokio::fs::read(path).await {
             Ok(contents) => {
@@ -99,20 +100,20 @@ impl Storage {
         })
     }
 
-    pub fn read_only<F>(&self, mut f: F)
+    pub async fn read_only<F>(&self, mut f: F)
     where
         F: FnMut(&State),
     {
-        f(&*self.state.read().unwrap())
+        f(&*self.state.read().await)
     }
 
     pub async fn read_write<F>(&self, mut f: F) -> Result<()>
     where
         F: FnMut(&mut State) -> bool,
     {
-        if f(&mut *self.state.write().unwrap()) {
-            let state = self.dump();
-            let data = serde_json::to_vec(&state).unwrap();
+        let state = &mut *self.state.write().await;
+        if f(state) {
+            let data = serde_json::to_vec(state).unwrap();
             let tmp_path = format!("{}.tmp", self.path);
             tokio::fs::write(&tmp_path, data).await?;
             tokio::fs::rename(&tmp_path, &self.path).await?;
@@ -120,8 +121,8 @@ impl Storage {
         Ok(())
     }
 
-    pub fn dump(&self) -> State {
-        let state = &*self.state.read().unwrap();
+    pub async fn snapshot(&self) -> State {
+        let state = &*self.state.read().await;
         state.clone()
     }
 }

@@ -3,8 +3,6 @@ use hyper::body::Buf;
 use hyper::{Body, Method, Request, Response, StatusCode};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use percent_encoding::percent_decode;
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
 
 use crate::error::*;
 use crate::model::{
@@ -36,24 +34,8 @@ pub struct HttpService {
 }
 
 impl HttpService {
-    pub async fn from_storage(storage: Storage) -> Result<Self> {
-        let mut secret = String::new();
-        storage
-            .read_write(|state| {
-                if state.secret.is_empty() {
-                    secret = thread_rng()
-                        .sample_iter(&Alphanumeric)
-                        .take(16)
-                        .map(char::from)
-                        .collect();
-                    state.secret = secret.clone();
-                    true
-                } else {
-                    false
-                }
-            })
-            .await?;
-        Ok(HttpService { storage, secret })
+    pub fn new(storage: Storage, secret: String) -> Self {
+        HttpService { storage, secret }
     }
 
     pub async fn home(&self, _req: Request<Body>) -> Result<Response<Body>> {
@@ -70,14 +52,16 @@ impl HttpService {
             return write_error(StatusCode::BAD_REQUEST, "password is empty");
         }
         let mut verified = false;
-        self.storage.read_only(|state| {
-            verified = state.users.iter().any(|u| {
-                u.username == params.username
-                    && pbkdf2_check(&params.password, &u.password_hash)
-                        .ok()
-                        .unwrap()
-            });
-        });
+        self.storage
+            .read_only(|state| {
+                verified = state.users.iter().any(|u| {
+                    u.username == params.username
+                        && pbkdf2_check(&params.password, &u.password_hash)
+                            .ok()
+                            .unwrap()
+                });
+            })
+            .await;
         if verified {
             let claims = UserClaims {
                 username: params.username,
@@ -259,23 +243,25 @@ impl HttpService {
         }
         let username = username.unwrap();
         let mut http_instances = Vec::new();
-        self.storage.read_only(|state| {
-            for u in &state.users {
-                if u.username == username {
-                    for instance in &u.instances {
-                        http_instances.push(HttpInstance {
-                            name: instance.name.clone(),
-                            cpu: instance.cpu,
-                            memory: instance.memory,
-                            disk_size: instance.disk_size,
-                            domain_name: instance.domain_name.clone(),
-                            status: instance.status.to_string(),
-                        })
+        self.storage
+            .read_only(|state| {
+                for u in &state.users {
+                    if u.username == username {
+                        for instance in &u.instances {
+                            http_instances.push(HttpInstance {
+                                name: instance.name.clone(),
+                                cpu: instance.cpu,
+                                memory: instance.memory,
+                                disk_size: instance.disk_size,
+                                domain_name: instance.domain_name.clone(),
+                                status: instance.status.to_string(),
+                            })
+                        }
+                        return;
                     }
-                    return;
                 }
-            }
-        });
+            })
+            .await;
         let resp = ListInstancesResponse {
             instances: http_instances,
         };

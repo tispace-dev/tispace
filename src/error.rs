@@ -1,6 +1,7 @@
+use std::error::Error as StdError;
 use std::fmt;
 
-pub type GenericError = Box<dyn std::error::Error + Send + Sync>;
+pub type GenericError = Box<dyn StdError + Send + Sync>;
 pub type Result<T> = std::result::Result<T, GenericError>;
 
 #[derive(Debug)]
@@ -16,7 +17,7 @@ impl Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl StdError for Error {}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
