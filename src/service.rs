@@ -145,6 +145,10 @@ impl HttpService {
             .read_write(|state| {
                 for u in &mut state.users {
                     if u.username == username {
+                        if u.instances.len() + 1 > u.instance_quota {
+                            quota_exceeded = true;
+                            return false;
+                        }
                         let mut total_cpu = 0;
                         let mut total_memory = 0;
                         let mut total_disk_size = 0;

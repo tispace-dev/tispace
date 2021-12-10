@@ -61,6 +61,7 @@ pub struct User {
     pub cpu_quota: usize,
     pub memory_quota: usize,
     pub disk_quota: usize,
+    pub instance_quota: usize,
     pub instances: Vec<Instance>,
 }
 
