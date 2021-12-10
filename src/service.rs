@@ -1,7 +1,6 @@
+use crypto::pbkdf2::{pbkdf2_check, pbkdf2_simple};
 use hyper::body::Buf;
 use hyper::{Body, Method, Request, Response, StatusCode};
-
-use crypto::pbkdf2::{pbkdf2_check, pbkdf2_simple};
 use percent_encoding::percent_decode;
 
 use crate::error::*;
@@ -20,10 +19,10 @@ fn write_code(code: StatusCode) -> Result<Response<Body>> {
 }
 
 fn write_error(code: StatusCode, message: &str) -> Result<Response<Body>> {
-    let resp_json = ErrorResponse {
+    let resp = ErrorResponse {
         error: message.to_string(),
     };
-    let body = serde_json::to_string(&resp_json).unwrap();
+    let body = serde_json::to_string(&resp).unwrap();
     Ok(Response::builder().status(code).body(body.into()).unwrap())
 }
 
@@ -42,27 +41,27 @@ impl HttpService {
 
     pub async fn user_login(&self, req: Request<Body>) -> Result<Response<Body>> {
         let body = hyper::body::aggregate(req).await?;
-        let req_json: UserLoginRequest = serde_json::from_reader(body.reader())?;
-        if req_json.username.is_empty() {
+        let params: UserLoginRequest = serde_json::from_reader(body.reader())?;
+        if params.username.is_empty() {
             return write_error(StatusCode::BAD_REQUEST, "username is empty");
         }
-        if req_json.password.is_empty() {
+        if params.password.is_empty() {
             return write_error(StatusCode::BAD_REQUEST, "password is empty");
         }
         let mut verified = false;
         self.storage.read_only(|state| {
             verified = state.users.iter().any(|u| {
-                u.username == req_json.username
-                    && pbkdf2_check(&req_json.password, &u.password_hash)
+                u.username == params.username
+                    && pbkdf2_check(&params.password, &u.password_hash)
                         .ok()
                         .unwrap()
             });
         });
         if verified {
             // FIXME: token should encrypted with a secret key.
-            let token = base64::encode(serde_json::to_string(&req_json.username).unwrap());
-            let resp_json = UserLoginResponse { token };
-            let body = serde_json::to_string(&resp_json).unwrap();
+            let token = base64::encode(serde_json::to_string(&params.username).unwrap());
+            let resp = UserLoginResponse { token };
+            let body = serde_json::to_string(&resp).unwrap();
             Ok(Response::new(body.into()))
         } else {
             write_code(StatusCode::UNAUTHORIZED)
@@ -101,15 +100,15 @@ impl HttpService {
         }
         let username = username.unwrap();
         let body = hyper::body::aggregate(req).await?;
-        let req_json: ChangePasswordRequest = serde_json::from_reader(body.reader())?;
-        if req_json.new_password.is_empty() {
+        let params: ChangePasswordRequest = serde_json::from_reader(body.reader())?;
+        if params.new_password.is_empty() {
             return write_error(StatusCode::BAD_REQUEST, "new_password is empty");
         }
         self.storage
             .read_write(|state| {
                 for u in &mut state.users {
                     if u.username == username {
-                        u.password_hash = pbkdf2_simple(&req_json.new_password, 1024).unwrap();
+                        u.password_hash = pbkdf2_simple(&params.new_password, 1024).unwrap();
                         return true;
                     }
                 }
@@ -126,20 +125,20 @@ impl HttpService {
         }
         let username = username.unwrap();
         let body = hyper::body::aggregate(req).await?;
-        let req_json: CreateInstanceRequest = serde_json::from_reader(body.reader())?;
-        if req_json.name.is_empty() {
+        let params: CreateInstanceRequest = serde_json::from_reader(body.reader())?;
+        if params.name.is_empty() {
             return write_error(StatusCode::BAD_REQUEST, "name is empty");
         }
-        if req_json.cpu == 0 {
+        if params.cpu == 0 {
             return write_error(StatusCode::BAD_REQUEST, "cpu must be greater than 0");
         }
-        if req_json.memory == 0 {
+        if params.memory == 0 {
             return write_error(StatusCode::BAD_REQUEST, "memory must be greater than 0");
         }
-        if req_json.disk_size == 0 {
+        if params.disk_size == 0 {
             return write_error(StatusCode::BAD_REQUEST, "disk_size must be greater than 0");
         }
-        let domain_name = format!("{}.tispace.{}.svc.cluster.local", req_json.name, username);
+        let domain_name = format!("{}.tispace.{}.svc.cluster.local", params.name, username);
 
         let mut already_exists = false;
         let mut quota_exceeded = false;
@@ -156,7 +155,7 @@ impl HttpService {
                         let mut total_memory = 0;
                         let mut total_disk_size = 0;
                         for instance in &mut u.instances {
-                            if instance.name == req_json.name {
+                            if instance.name == params.name {
                                 already_exists = true;
                                 return false;
                             }
@@ -164,18 +163,18 @@ impl HttpService {
                             total_memory += instance.memory;
                             total_disk_size += instance.disk_size;
                         }
-                        quota_exceeded = total_cpu + req_json.cpu > u.cpu_quota
-                            || total_memory + req_json.memory > u.memory_quota
-                            || total_disk_size + req_json.disk_size > u.disk_quota;
+                        quota_exceeded = total_cpu + params.cpu > u.cpu_quota
+                            || total_memory + params.memory > u.memory_quota
+                            || total_disk_size + params.disk_size > u.disk_quota;
                         if quota_exceeded {
                             return false;
                         }
 
                         u.instances.push(Instance {
-                            name: req_json.name.clone(),
-                            cpu: req_json.cpu,
-                            memory: req_json.memory,
-                            disk_size: req_json.disk_size,
+                            name: params.name.clone(),
+                            cpu: params.cpu,
+                            memory: params.memory,
+                            disk_size: params.disk_size,
                             stage: InstanceStage::Pending,
                             domain_name: domain_name.clone(),
                             status: InstanceStatus::Pending,
@@ -193,8 +192,8 @@ impl HttpService {
         } else if quota_exceeded {
             write_code(StatusCode::UNPROCESSABLE_ENTITY)
         } else if created {
-            let resp_json = CreateInstanceResponse { domain_name };
-            let body = serde_json::to_string(&resp_json).unwrap();
+            let resp = CreateInstanceResponse { domain_name };
+            let body = serde_json::to_string(&resp).unwrap();
             Ok(Response::builder()
                 .status(StatusCode::CREATED)
                 .body(body.into())
@@ -262,10 +261,10 @@ impl HttpService {
                 }
             }
         });
-        let resp_json = ListInstancesResponse {
+        let resp = ListInstancesResponse {
             instances: http_instances,
         };
-        let body = serde_json::to_string(&resp_json).unwrap();
+        let body = serde_json::to_string(&resp).unwrap();
         Ok(Response::new(body.into()))
     }
 
