@@ -1,12 +1,16 @@
 use crypto::pbkdf2::{pbkdf2_check, pbkdf2_simple};
 use hyper::body::Buf;
 use hyper::{Body, Method, Request, Response, StatusCode};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use percent_encoding::percent_decode;
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 
 use crate::error::*;
 use crate::model::{
     ChangePasswordRequest, CreateInstanceRequest, CreateInstanceResponse, ErrorResponse,
-    Instance as HttpInstance, ListInstancesResponse, UserLoginRequest, UserLoginResponse,
+    Instance as HttpInstance, ListInstancesResponse, UserClaims, UserLoginRequest,
+    UserLoginResponse,
 };
 use crate::storage::{Instance, InstanceStage, InstanceStatus, Storage};
 
@@ -28,11 +32,28 @@ fn write_error(code: StatusCode, message: &str) -> Result<Response<Body>> {
 
 pub struct HttpService {
     storage: Storage,
+    secret: String,
 }
 
 impl HttpService {
-    pub fn new(storage: Storage) -> Self {
-        HttpService { storage }
+    pub async fn from_storage(storage: Storage) -> Result<Self> {
+        let mut secret = String::new();
+        storage
+            .read_write(|state| {
+                if state.secret.is_empty() {
+                    secret = thread_rng()
+                        .sample_iter(&Alphanumeric)
+                        .take(16)
+                        .map(char::from)
+                        .collect();
+                    state.secret = secret.clone();
+                    true
+                } else {
+                    false
+                }
+            })
+            .await?;
+        Ok(HttpService { storage, secret })
     }
 
     pub async fn home(&self, _req: Request<Body>) -> Result<Response<Body>> {
@@ -58,8 +79,14 @@ impl HttpService {
             });
         });
         if verified {
-            // FIXME: token should encrypted with a secret key.
-            let token = base64::encode(serde_json::to_string(&params.username).unwrap());
+            let claims = UserClaims {
+                username: params.username,
+            };
+            let token = encode(
+                &Header::default(),
+                &claims,
+                &EncodingKey::from_secret(self.secret.as_bytes()),
+            )?;
             let resp = UserLoginResponse { token };
             let body = serde_json::to_string(&resp).unwrap();
             Ok(Response::new(body.into()))
@@ -68,33 +95,21 @@ impl HttpService {
         }
     }
 
-    fn verify_credentials(&self, credentials: &[u8]) -> Option<String> {
-        let mut colon = credentials.len();
-        for i in 0..credentials.len() {
-            if credentials[i] == b':' {
-                colon = i;
-                break;
-            }
-        }
-        if colon == credentials.len() {
-            return None;
-        }
-        let username = String::from_utf8_lossy(&credentials[..colon]).to_string();
-        // FIXME: verify token.
-        let mut found = false;
-        self.storage
-            .read_only(|state| found = state.users.iter().any(|u| u.username == username));
-        Some(username)
-    }
-
-    fn verify_basic_auth(&self, req: &Request<Body>) -> Option<String> {
+    fn verify_auth(&self, req: &Request<Body>) -> Option<String> {
         let auth = req.headers().get("Authorization")?.to_str().ok()?;
-        let credentials = base64::decode(auth.split_whitespace().last()?).ok()?;
-        self.verify_credentials(&credentials)
+        let token = auth.split_whitespace().last()?;
+        // FIXME: It seems the usage is not correct yet.
+        let claims = decode::<UserClaims>(
+            token,
+            &DecodingKey::from_secret(self.secret.as_bytes()),
+            &Validation::default(),
+        )
+        .ok()?;
+        Some(claims.claims.username)
     }
 
     pub async fn change_password(&self, req: Request<Body>) -> Result<Response<Body>> {
-        let username = self.verify_basic_auth(&req);
+        let username = self.verify_auth(&req);
         if username.is_none() {
             return write_code(StatusCode::UNAUTHORIZED);
         }
@@ -119,7 +134,7 @@ impl HttpService {
     }
 
     pub async fn create_instance(&self, req: Request<Body>) -> Result<Response<Body>> {
-        let username = self.verify_basic_auth(&req);
+        let username = self.verify_auth(&req);
         if username.is_none() {
             return write_code(StatusCode::UNAUTHORIZED);
         }
@@ -204,7 +219,7 @@ impl HttpService {
     }
 
     pub async fn delete_instance(&self, req: Request<Body>) -> Result<Response<Body>> {
-        let username = self.verify_basic_auth(&req);
+        let username = self.verify_auth(&req);
         if username.is_none() {
             return write_code(StatusCode::UNAUTHORIZED);
         }
@@ -238,7 +253,7 @@ impl HttpService {
     }
 
     pub async fn list_instances(&self, req: Request<Body>) -> Result<Response<Body>> {
-        let username = self.verify_basic_auth(&req);
+        let username = self.verify_auth(&req);
         if username.is_none() {
             return write_code(StatusCode::UNAUTHORIZED);
         }

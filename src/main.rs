@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
     let addr = "0.0.0.0:8080".parse().unwrap();
 
     let s = Storage::from_path("state.json").await?;
-    let http_srv = Arc::new(HttpService::new(s.clone()));
+    let http_srv = Arc::new(HttpService::from_storage(s.clone()).await?);
     let service = make_service_fn(move |_| {
         let http_srv: Arc<HttpService> = http_srv.clone();
         async move {

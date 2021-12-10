@@ -68,6 +68,7 @@ pub struct User {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct State {
     pub users: Vec<User>,
+    pub secret: String,
 }
 
 impl State {
