@@ -1,6 +1,7 @@
 build:
 	cargo build
-
+clippy:
+          cargo clippy
 run:
 	cargo run
 
