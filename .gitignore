@@ -1,5 +1,4 @@
 .idea
 .vscode
-bin
 /target
 state.json
