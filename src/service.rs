@@ -243,25 +243,22 @@ impl HttpService {
         let username = username.unwrap();
         let mut http_instances = Vec::new();
         self.storage
-            .read_only(
-                |state| match state.users.iter().find(|&u| u.username == username) {
-                    Some(u) => {
-                        http_instances = u
-                            .instances
-                            .iter()
-                            .map(|instance| HttpInstance {
-                                name: instance.name.clone(),
-                                cpu: instance.cpu,
-                                memory: instance.memory,
-                                disk_size: instance.disk_size,
-                                domain_name: instance.domain_name.clone(),
-                                status: instance.status.to_string(),
-                            })
-                            .collect();
-                    }
-                    None => (),
-                },
-            )
+            .read_only(|state| {
+                if let Some(u) = state.users.iter().find(|&u| u.username == username) {
+                    http_instances = u
+                        .instances
+                        .iter()
+                        .map(|instance| HttpInstance {
+                            name: instance.name.clone(),
+                            cpu: instance.cpu,
+                            memory: instance.memory,
+                            disk_size: instance.disk_size,
+                            domain_name: instance.domain_name.clone(),
+                            status: instance.status.to_string(),
+                        })
+                        .collect();
+                }
+            })
             .await;
         let resp = ListInstancesResponse {
             instances: http_instances,
