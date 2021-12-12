@@ -23,15 +23,11 @@ use crate::{
 pub fn protected_routes() -> Router {
     async fn change_password(
         user: UserClaims,
-        Path(username): Path<String>,
         Json(change): Json<ChangePasswordRequest>,
         Extension(storage): Extension<Storage>,
     ) -> Result<impl IntoResponse, UserError> {
         if change.new_password.is_empty() {
             return Err(UserError::EmptyNewPassword);
-        }
-        if username != user.sub {
-            return Err(UserError::TryUpdateOtherPassword);
         }
 
         match storage
@@ -194,7 +190,7 @@ pub fn protected_routes() -> Router {
     }
 
     Router::new()
-        .route("/users/:username/password", put(change_password))
+        .route("/users/password", put(change_password))
         .route("/instances", get(list_instances).post(create_instance))
         .route("/instances/:instance_name", delete(delete_instance))
 }

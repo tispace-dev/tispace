@@ -44,8 +44,6 @@ crate enum UserError {
     EmptyNewPassword,
     #[error("Password update failed")]
     PasswordUpdateFailed,
-    #[error("Don't be so evil")]
-    TryUpdateOtherPassword,
 }
 
 impl IntoResponse for UserError {
@@ -55,7 +53,6 @@ impl IntoResponse for UserError {
             UserError::PasswordUpdateFailed => {
                 (StatusCode::INTERNAL_SERVER_ERROR, self.to_string())
             }
-            UserError::TryUpdateOtherPassword => (StatusCode::UNAUTHORIZED, self.to_string()),
         };
         let body = Json(json!({
             "error": error_message,
