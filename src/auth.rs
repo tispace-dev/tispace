@@ -70,9 +70,9 @@ pub async fn authorize(
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
-pub struct UserClaims {
-    pub sub: String,
-    pub exp: usize,
+crate struct UserClaims {
+    crate sub: String,
+    crate exp: usize,
 }
 
 #[async_trait]

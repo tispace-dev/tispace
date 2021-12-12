@@ -39,7 +39,7 @@ impl IntoResponse for AuthError {
 }
 
 #[derive(Debug, Error)]
-pub enum UserError {
+crate enum UserError {
     #[error("Empty new password")]
     EmptyNewPassword,
     #[error("Password update failed")]
@@ -65,7 +65,7 @@ impl IntoResponse for UserError {
 }
 
 #[derive(Debug, Error)]
-pub enum InstanceError {
+crate enum InstanceError {
     #[error("Invalid arg `{0}`")]
     InvalidArgs(String),
     #[error("Instance already exists")]

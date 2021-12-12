@@ -27,14 +27,14 @@ impl Storage {
         })
     }
 
-    pub async fn read_only<F>(&self, mut f: F)
+    crate async fn read_only<F>(&self, mut f: F)
     where
         F: FnMut(&State),
     {
         f(&*self.state.read().await)
     }
 
-    pub async fn read_write<F>(&self, mut f: F) -> Result<()>
+    crate async fn read_write<F>(&self, mut f: F) -> Result<()>
     where
         F: FnMut(&mut State) -> bool,
     {
@@ -48,7 +48,7 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn snapshot(&self) -> State {
+    crate async fn snapshot(&self) -> State {
         let state = &*self.state.read().await;
         state.clone()
     }

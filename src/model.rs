@@ -4,7 +4,7 @@ use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub enum InstanceStage {
+crate enum InstanceStage {
     Pending,
     Running,
     Deleting,
@@ -21,7 +21,7 @@ impl fmt::Display for InstanceStage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub enum InstanceStatus {
+crate enum InstanceStatus {
     Pending,
     Running,
     Deleting,
@@ -40,35 +40,34 @@ impl fmt::Display for InstanceStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Instance {
-    pub name: String,
-    pub cpu: usize,
-    pub memory: usize,
-    pub disk_size: usize,
-    pub domain_name: String,
-    pub stage: InstanceStage,
-    pub status: InstanceStatus,
+crate struct Instance {
+    crate name: String,
+    crate cpu: usize,
+    crate memory: usize,
+    crate disk_size: usize,
+    crate domain_name: String,
+    crate stage: InstanceStage,
+    crate status: InstanceStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct User {
-    pub username: String,
-    pub password_hash: String,
-    pub cpu_quota: usize,
-    pub memory_quota: usize,
-    pub disk_quota: usize,
-    pub instance_quota: usize,
-    pub instances: Vec<Instance>,
+crate struct User {
+    crate username: String,
+    crate password_hash: String,
+    crate cpu_quota: usize,
+    crate memory_quota: usize,
+    crate disk_quota: usize,
+    crate instance_quota: usize,
+    crate instances: Vec<Instance>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct State {
-    pub users: Vec<User>,
-    pub secret: String,
+crate struct State {
+    crate users: Vec<User>,
 }
 
 impl State {
-    pub fn new() -> Self {
+    crate fn new() -> Self {
         Default::default()
     }
 }
