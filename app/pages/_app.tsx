@@ -1,8 +1,9 @@
-import '../styles/globals.css'
+import 'antd/dist/antd.less'
+import '../styles/globals.less'
 import type { AppProps } from 'next/app'
 
-function MyApp({ Component, pageProps }: AppProps) {
+function TiSpace({ Component, pageProps }: AppProps) {
   return <Component {...pageProps} />
 }
 
-export default MyApp
+export default TiSpace
