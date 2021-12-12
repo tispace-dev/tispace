@@ -13,7 +13,7 @@ pub type Result<T> = std::result::Result<T, BoxError>;
 
 #[derive(Debug, Error)]
 pub enum AuthError {
-    #[error("Invalid token")]
+    #[error("Wrong credentials")]
     WrongCredentials,
     #[error("Missing credentials")]
     MissingCredentials,
@@ -44,6 +44,8 @@ pub enum UserError {
     EmptyNewPassword,
     #[error("Password update failed")]
     PasswordUpdateFailed,
+    #[error("Don't be so evil")]
+    TryUpdateOtherPassword,
 }
 
 impl IntoResponse for UserError {
@@ -53,6 +55,7 @@ impl IntoResponse for UserError {
             UserError::PasswordUpdateFailed => {
                 (StatusCode::INTERNAL_SERVER_ERROR, self.to_string())
             }
+            UserError::TryUpdateOtherPassword => (StatusCode::UNAUTHORIZED, self.to_string()),
         };
         let body = Json(json!({
             "error": error_message,

@@ -2,7 +2,7 @@ use axum::{
     extract::{Extension, Path},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::{delete, get, put},
     Json, Router,
 };
 use crypto::pbkdf2::pbkdf2_simple;
@@ -22,7 +22,7 @@ use crate::{
 
 pub fn protected_routes() -> Router {
     async fn change_password(
-        _: UserClaims,
+        user: UserClaims,
         Path(username): Path<String>,
         Json(change): Json<ChangePasswordRequest>,
         Extension(storage): Extension<Storage>,
@@ -30,9 +30,13 @@ pub fn protected_routes() -> Router {
         if change.new_password.is_empty() {
             return Err(UserError::EmptyNewPassword);
         }
+        if username != user.sub {
+            return Err(UserError::TryUpdateOtherPassword);
+        }
+
         match storage
             .read_write(
-                |state| match state.users.iter_mut().find(|u| u.username == username) {
+                |state| match state.users.iter_mut().find(|u| u.username == user.sub) {
                     Some(u) => {
                         u.password_hash = pbkdf2_simple(&change.new_password, 1024).unwrap();
                         true
@@ -49,8 +53,7 @@ pub fn protected_routes() -> Router {
     }
 
     async fn create_instance(
-        _: UserClaims,
-        Path(username): Path<String>,
+        user: UserClaims,
         Json(req): Json<CreateInstanceRequest>,
         Extension(storage): Extension<Storage>,
     ) -> Result<impl IntoResponse, InstanceError> {
@@ -66,13 +69,13 @@ pub fn protected_routes() -> Router {
         if req.disk_size == 0 {
             return Err(InstanceError::InvalidArgs("disk_size".to_string()));
         }
-        let domain_name = format!("{}.tispace.{}.svc.cluster.local", req.name, username);
+        let domain_name = format!("{}.tispace.{}.svc.cluster.local", req.name, user.sub);
         let mut already_exists = false;
         let mut quota_exceeded = false;
         let mut created = false;
         match storage
             .read_write(
-                |state| match state.users.iter_mut().find(|u| u.username == username) {
+                |state| match state.users.iter_mut().find(|u| u.username == user.sub) {
                     Some(u) => {
                         if u.instances.len() + 1 > u.instance_quota {
                             quota_exceeded = true;
@@ -130,14 +133,13 @@ pub fn protected_routes() -> Router {
     }
 
     async fn delete_instance(
-        _: UserClaims,
-        Path(username): Path<String>,
+        user: UserClaims,
         Path(instance_name): Path<String>,
         Extension(storage): Extension<Storage>,
     ) -> Result<impl IntoResponse, InstanceError> {
         match storage
             .read_write(
-                |state| match state.users.iter_mut().find(|u| u.username == username) {
+                |state| match state.users.iter_mut().find(|u| u.username == user.sub) {
                     Some(u) => {
                         match u.instances.iter_mut().find(|instance| {
                             instance.name == instance_name
@@ -162,14 +164,13 @@ pub fn protected_routes() -> Router {
     }
 
     async fn list_instances(
-        _: UserClaims,
-        Path(username): Path<String>,
+        user: UserClaims,
         Extension(storage): Extension<Storage>,
     ) -> impl IntoResponse {
         let mut http_instances = Vec::new();
         storage
             .read_only(|state| {
-                if let Some(u) = state.users.iter().find(|&u| u.username == username) {
+                if let Some(u) = state.users.iter().find(|&u| u.username == user.sub) {
                     http_instances = u
                         .instances
                         .iter()
@@ -194,10 +195,6 @@ pub fn protected_routes() -> Router {
 
     Router::new()
         .route("/users/:user/password", put(change_password))
-        .route("/users/:user/instances", post(create_instance))
-        .route(
-            "/users/:user/instances/:instance_name",
-            delete(delete_instance),
-        )
-        .route("/users/:user/instances", get(list_instances))
+        .route("/instances", get(list_instances).post(create_instance))
+        .route("/instances/:instance_name", delete(delete_instance))
 }
