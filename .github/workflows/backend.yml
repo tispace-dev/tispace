@@ -16,3 +16,4 @@ jobs:
           override: true
           components: rustfmt, clippy
       - run: make fmt && make clippy
+
