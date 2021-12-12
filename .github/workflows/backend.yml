@@ -15,5 +15,6 @@ jobs:
           toolchain: nightly-2021-12-12
           override: true
           components: rustfmt, clippy
-      - run: make fmt && make clippy
+      - run: make fmt
+      - run: make clippy
 
