@@ -1,0 +1,7 @@
+version: 2
+updates:
+- package-ecosystem: yarn
+  directory: "app"
+  schedule:
+    interval: daily
+  open-pull-requests-limit: 10
