@@ -1,82 +1,9 @@
-use std::fmt;
-use std::fmt::Formatter;
 use std::io::ErrorKind;
-
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
 use tokio::sync::RwLock;
 
-use crate::error::*;
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub enum InstanceStage {
-    Pending,
-    Running,
-    Deleting,
-}
-
-impl fmt::Display for InstanceStage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            InstanceStage::Pending => write!(f, "Pending"),
-            InstanceStage::Running => write!(f, "Running"),
-            InstanceStage::Deleting => write!(f, "Deleting"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub enum InstanceStatus {
-    Pending,
-    Running,
-    Deleting,
-    Error,
-}
-
-impl fmt::Display for InstanceStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            InstanceStatus::Pending => write!(f, "Pending"),
-            InstanceStatus::Running => write!(f, "Running"),
-            InstanceStatus::Deleting => write!(f, "Deleting"),
-            InstanceStatus::Error => write!(f, "Error"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Instance {
-    pub name: String,
-    pub cpu: usize,
-    pub memory: usize,
-    pub disk_size: usize,
-    pub domain_name: String,
-    pub stage: InstanceStage,
-    pub status: InstanceStatus,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct User {
-    pub username: String,
-    pub password_hash: String,
-    pub cpu_quota: usize,
-    pub memory_quota: usize,
-    pub disk_quota: usize,
-    pub instance_quota: usize,
-    pub instances: Vec<Instance>,
-}
-
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct State {
-    pub users: Vec<User>,
-    pub secret: String,
-}
-
-impl State {
-    pub fn new() -> Self {
-        Default::default()
-    }
-}
+use crate::{error::*, model::State};
 
 #[derive(Clone)]
 pub struct Storage {
@@ -100,14 +27,14 @@ impl Storage {
         })
     }
 
-    pub async fn read_only<F>(&self, mut f: F)
+    crate async fn read_only<F>(&self, mut f: F)
     where
         F: FnMut(&State),
     {
         f(&*self.state.read().await)
     }
 
-    pub async fn read_write<F>(&self, mut f: F) -> Result<()>
+    crate async fn read_write<F>(&self, mut f: F) -> Result<()>
     where
         F: FnMut(&mut State) -> bool,
     {
@@ -121,7 +48,7 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn snapshot(&self) -> State {
+    crate async fn snapshot(&self) -> State {
         let state = &*self.state.read().await;
         state.clone()
     }

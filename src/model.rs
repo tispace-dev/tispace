@@ -1,65 +1,73 @@
+use std::fmt;
+use std::fmt::Formatter;
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct UserClaims {
-    pub username: String,
-    // TODO: support expiration
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+crate enum InstanceStage {
+    Pending,
+    Running,
+    Deleting,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct UserLoginRequest {
-    pub username: String,
-    pub password: String,
+impl fmt::Display for InstanceStage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            InstanceStage::Pending => write!(f, "Pending"),
+            InstanceStage::Running => write!(f, "Running"),
+            InstanceStage::Deleting => write!(f, "Deleting"),
+        }
+    }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct UserLoginResponse {
-    pub token: String,
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+crate enum InstanceStatus {
+    Pending,
+    Running,
+    Deleting,
+    Error,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ChangePasswordRequest {
-    pub new_password: String,
+impl fmt::Display for InstanceStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            InstanceStatus::Pending => write!(f, "Pending"),
+            InstanceStatus::Running => write!(f, "Running"),
+            InstanceStatus::Deleting => write!(f, "Deleting"),
+            InstanceStatus::Error => write!(f, "Error"),
+        }
+    }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct CreateInstanceRequest {
-    pub name: String,
-    pub cpu: usize,
-    pub memory: usize,
-    pub disk_size: usize,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+crate struct Instance {
+    crate name: String,
+    crate cpu: usize,
+    crate memory: usize,
+    crate disk_size: usize,
+    crate domain_name: String,
+    crate stage: InstanceStage,
+    crate status: InstanceStatus,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct CreateInstanceResponse {
-    pub domain_name: String,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+crate struct User {
+    crate username: String,
+    crate password_hash: String,
+    crate cpu_quota: usize,
+    crate memory_quota: usize,
+    crate disk_quota: usize,
+    crate instance_quota: usize,
+    crate instances: Vec<Instance>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct Instance {
-    pub name: String,
-    pub cpu: usize,
-    pub memory: usize,
-    pub disk_size: usize,
-    pub domain_name: String,
-    pub status: String,
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+crate struct State {
+    crate users: Vec<User>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ListInstancesResponse {
-    pub instances: Vec<Instance>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ErrorResponse {
-    pub error: String,
+impl State {
+    crate fn new() -> Self {
+        Default::default()
+    }
 }
