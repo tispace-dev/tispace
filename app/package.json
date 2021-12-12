@@ -8,7 +8,7 @@
     "lint": "next lint && prettier \"**/*\" --write --ignore-unknown && stylelint \"**/*.less\""
   },
   "dependencies": {
-    "@ant-design/icons": "4.2.1",
+    "@ant-design/icons": "4.7.0",
     "antd": "4.17.3",
     "next": "12.0.7",
     "next-plugin-antd-less": "^1.6.0",
