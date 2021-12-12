@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
-crate struct UserLoginRequest {
+pub struct UserLoginRequest {
     crate username: String,
     crate password: String,
 }
