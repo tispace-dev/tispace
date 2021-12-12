@@ -190,7 +190,7 @@ pub fn protected_routes() -> Router {
     }
 
     Router::new()
-        .route("/users/password", put(change_password))
+        .route("/user/password", put(change_password))
         .route("/instances", get(list_instances).post(create_instance))
         .route("/instances/:instance_name", delete(delete_instance))
 }
