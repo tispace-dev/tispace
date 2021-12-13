@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use k8s_openapi::api::core::v1::{
     Capabilities, Container, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec,
-    PersistentVolumeClaimVolumeSource, Pod, PodSpec, ResourceRequirements, SecurityContext,
-    Service, ServiceSpec, Volume, VolumeMount,
+    PersistentVolumeClaimVolumeSource, Pod, PodDNSConfig, PodSpec, ResourceRequirements,
+    SecurityContext, Service, ServiceSpec, Volume, VolumeMount,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
@@ -183,6 +183,10 @@ fn build_pod(
             init_containers: Some(vec![build_init_container(pod_name)]),
             volumes: Some(vec![build_rootfs_volume(pod_name)]),
             restart_policy: Some("Always".to_owned()),
+            dns_config: Some(PodDNSConfig {
+                searches: Some(vec![format!("{}.tispace.svc.cluster.local", subdomain)]),
+                ..Default::default()
+            }),
             ..Default::default()
         }),
         ..Default::default()
@@ -217,6 +221,17 @@ impl Operator {
                             instance = instance.name.as_str(),
                             error = e.to_string().as_str(),
                             "Failed to sync instance status"
+                        );
+                    }
+                }
+                // If a user has no instance, delete the Service.
+                if user.instances.is_empty() {
+                    let subdomain = user.username.as_str();
+                    if let Err(e) = self.remove_orphan_service(subdomain).await {
+                        warn!(
+                            subdomain = subdomain,
+                            error = e.to_string().as_str(),
+                            "Failed to remove orphan service"
                         );
                     }
                 }
@@ -411,28 +426,23 @@ impl Operator {
             );
         }
 
-        // 4. If a user has no instance, delete the Service.
-        if user.instances.is_empty() {
-            let subdomain = user.username.clone();
-            let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
-            match services.get(&subdomain).await {
-                Ok(_) => {
-                    info!(
-                        username = user.username.as_str(),
-                        instance = instance.name.as_str(),
-                        "Deleting Service"
-                    );
-                    services
-                        .delete(&subdomain, &DeleteParams::default())
-                        .await?;
-                }
-                Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
-                Err(e) => {
-                    return Err(anyhow!(e));
-                }
+        Ok(())
+    }
+
+    async fn remove_orphan_service(&self, subdomain: &str) -> Result<()> {
+        let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
+        match services.get(&subdomain).await {
+            Ok(_) => {
+                info!(subdomain = subdomain, "Deleting Service");
+                services
+                    .delete(&subdomain, &DeleteParams::default())
+                    .await?;
+            }
+            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
+            Err(e) => {
+                return Err(anyhow!(e));
             }
         }
-
         Ok(())
     }
 }
