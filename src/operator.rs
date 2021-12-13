@@ -350,12 +350,17 @@ impl Operator {
     ) -> Result<()> {
         let mut deleted = true;
 
-        // 1. Try to delete Pod.
+        // 1. Try to delete the Pod.
         let pod_name = format!("{}-{}", user.username, instance.name);
         let pods: Api<Pod> = Api::namespaced(self.client.clone(), NAMESPACE);
         match pods.get(&pod_name).await {
             Ok(_pod) => {
                 deleted = false;
+                info!(
+                    username = user.username.as_str(),
+                    instance = instance.name.as_str(),
+                    "Deleting Pod"
+                );
                 pods.delete(&pod_name, &DeleteParams::default()).await?;
             }
             Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
@@ -364,12 +369,17 @@ impl Operator {
             }
         }
 
-        // 2. Try to delete PersistentVolumeClaim.
+        // 2. Try to delete the PersistentVolumeClaim.
         let pvc_name = rootfs_name(&pod_name);
         let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
         match pvcs.get(&pvc_name).await {
             Ok(_) => {
                 deleted = false;
+                info!(
+                    username = user.username.as_str(),
+                    instance = instance.name.as_str(),
+                    "Deleting PersistentVolumeClaim"
+                );
                 pvcs.delete(&pvc_name, &DeleteParams::default()).await?;
             }
             Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
@@ -378,7 +388,7 @@ impl Operator {
             }
         }
 
-        // 3. If Pod and PersistentVolumeClaim is all deleted, remote instance from storage state.
+        // 3. If both Pod and PersistentVolumeClaim are deleted, remove the instance from storage state.
         if deleted {
             self.storage
                 .read_write(|state| {
@@ -401,7 +411,7 @@ impl Operator {
             );
         }
 
-        // 4. If a user has no instances, do we need to delete the Service.
+        // 4. If a user has no instance, delete the Service.
         let subdomain = user.username.clone();
         let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
         match services.get(&subdomain).await {
@@ -409,7 +419,6 @@ impl Operator {
                 info!(
                     username = user.username.as_str(),
                     instance = instance.name.as_str(),
-                    subdomain = subdomain.as_str(),
                     "Deleting Service"
                 );
                 services
