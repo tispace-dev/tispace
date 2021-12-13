@@ -412,22 +412,24 @@ impl Operator {
         }
 
         // 4. If a user has no instance, delete the Service.
-        let subdomain = user.username.clone();
-        let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
-        match services.get(&subdomain).await {
-            Ok(_) => {
-                info!(
-                    username = user.username.as_str(),
-                    instance = instance.name.as_str(),
-                    "Deleting Service"
-                );
-                services
-                    .delete(&subdomain, &DeleteParams::default())
-                    .await?;
-            }
-            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
-            Err(e) => {
-                return Err(anyhow!(e));
+        if user.instances.is_empty() {
+            let subdomain = user.username.clone();
+            let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
+            match services.get(&subdomain).await {
+                Ok(_) => {
+                    info!(
+                        username = user.username.as_str(),
+                        instance = instance.name.as_str(),
+                        "Deleting Service"
+                    );
+                    services
+                        .delete(&subdomain, &DeleteParams::default())
+                        .await?;
+                }
+                Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
+                Err(e) => {
+                    return Err(anyhow!(e));
+                }
             }
         }
 
