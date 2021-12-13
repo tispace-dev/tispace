@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use k8s_openapi::api::core::v1::{
     Capabilities, Container, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec,
-    PersistentVolumeClaimVolumeSource, Pod, PodSpec, ResourceRequirements, SecurityContext, Volume,
-    VolumeMount,
+    PersistentVolumeClaimVolumeSource, Pod, PodSpec, ResourceRequirements, SecurityContext,
+    Service, ServiceSpec, Volume, VolumeMount,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
@@ -140,14 +140,44 @@ fn build_rootfs_volume(pod_name: &str) -> Volume {
     }
 }
 
-fn build_pod(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Pod {
+fn build_service(subdomain: &str) -> Service {
+    Service {
+        metadata: ObjectMeta {
+            name: Some(subdomain.to_owned()),
+            ..Default::default()
+        },
+        spec: Some(ServiceSpec {
+            selector: Some(BTreeMap::from([(
+                "tispace/subdomain".to_owned(),
+                subdomain.to_owned(),
+            )])),
+            cluster_ip: Some("None".to_owned()),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
+fn build_pod(
+    pod_name: &str,
+    cpu_limit: usize,
+    memory_limit: usize,
+    hostname: &str,
+    subdomain: &str,
+) -> Pod {
     Pod {
         metadata: ObjectMeta {
             name: Some(pod_name.to_owned()),
             namespace: Some(NAMESPACE.to_owned()),
+            labels: Some(BTreeMap::from([(
+                "tispace/subdomain".to_owned(),
+                subdomain.to_owned(),
+            )])),
             ..Default::default()
         },
         spec: Some(PodSpec {
+            hostname: Some(hostname.to_owned()),
+            subdomain: Some(subdomain.to_owned()),
             automount_service_account_token: Some(false),
             containers: vec![build_container(pod_name, cpu_limit, memory_limit)],
             init_containers: Some(vec![build_init_container(pod_name)]),
@@ -200,6 +230,28 @@ impl Operator {
         user: &User,
         instance: &Instance,
     ) -> Result<()> {
+        // 1. Ensure Service is created.
+        let hostname = instance.name.clone();
+        let subdomain = user.username.clone();
+        let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
+        match services.get(&subdomain).await {
+            Ok(_) => {}
+            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
+                info!(
+                    username = user.username.as_str(),
+                    instance = instance.name.as_str(),
+                    subdomain = subdomain.as_str(),
+                    "Creating Service"
+                );
+                let service = build_service(&subdomain);
+                services.create(&PostParams::default(), &service).await?;
+            }
+            Err(e) => {
+                return Err(anyhow!(e));
+            }
+        }
+
+        // 2. Ensure PersistentVolumeClaim is created.
         let pod_name = format!("{}-{}", user.username, instance.name);
         let pvc_name = rootfs_name(&pod_name);
         let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
@@ -218,6 +270,8 @@ impl Operator {
                 return Err(anyhow!(e));
             }
         }
+
+        // 3. Ensure Pod is running.
         let mut new_stage = instance.stage.clone();
         let mut new_status = instance.status.clone();
         let pods: Api<Pod> = Api::namespaced(self.client.clone(), NAMESPACE);
@@ -254,13 +308,21 @@ impl Operator {
                     instance = instance.name.as_str(),
                     "Creating Pod"
                 );
-                let pod = build_pod(&pod_name, instance.cpu, instance.memory);
+                let pod = build_pod(
+                    &pod_name,
+                    instance.cpu,
+                    instance.memory,
+                    &hostname,
+                    &subdomain,
+                );
                 pods.create(&PostParams::default(), &pod).await?;
             }
             Err(e) => {
                 return Err(anyhow!(e));
             }
         }
+
+        // 4. Update instance status.
         if new_stage != instance.stage || new_status != instance.status {
             self.storage
                 .read_write(|state| {
@@ -286,20 +348,10 @@ impl Operator {
         user: &User,
         instance: &Instance,
     ) -> Result<()> {
-        let pod_name = format!("{}-{}", user.username, instance.name);
-        let pvc_name = rootfs_name(&pod_name);
-        let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
         let mut deleted = true;
-        match pvcs.get(&pvc_name).await {
-            Ok(_) => {
-                deleted = false;
-                pvcs.delete(&pvc_name, &DeleteParams::default()).await?;
-            }
-            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
-            Err(e) => {
-                return Err(anyhow!(e));
-            }
-        }
+
+        // 1. Try to delete Pod.
+        let pod_name = format!("{}-{}", user.username, instance.name);
         let pods: Api<Pod> = Api::namespaced(self.client.clone(), NAMESPACE);
         match pods.get(&pod_name).await {
             Ok(_pod) => {
@@ -311,6 +363,22 @@ impl Operator {
                 return Err(anyhow!(e));
             }
         }
+
+        // 2. Try to delete PersistentVolumeClaim.
+        let pvc_name = rootfs_name(&pod_name);
+        let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
+        match pvcs.get(&pvc_name).await {
+            Ok(_) => {
+                deleted = false;
+                pvcs.delete(&pvc_name, &DeleteParams::default()).await?;
+            }
+            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
+            Err(e) => {
+                return Err(anyhow!(e));
+            }
+        }
+
+        // 3. If Pod and PersistentVolumeClaim is all deleted, remote instance from storage state.
         if deleted {
             self.storage
                 .read_write(|state| {
@@ -332,6 +400,28 @@ impl Operator {
                 "Instance is deleted"
             );
         }
+
+        // 4. If a user has no instances, do we need to delete the Service.
+        let subdomain = user.username.clone();
+        let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
+        match services.get(&subdomain).await {
+            Ok(_) => {
+                info!(
+                    username = user.username.as_str(),
+                    instance = instance.name.as_str(),
+                    subdomain = subdomain.as_str(),
+                    "Deleting Service"
+                );
+                services
+                    .delete(&subdomain, &DeleteParams::default())
+                    .await?;
+            }
+            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
+            Err(e) => {
+                return Err(anyhow!(e));
+            }
+        }
+
         Ok(())
     }
 }
