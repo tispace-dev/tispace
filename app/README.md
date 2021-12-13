@@ -14,9 +14,9 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+[API routes](https://nextjs.org/docs/service-routes/introduction) can be accessed on [http://localhost:3000/service/hello](http://localhost:3000/service/hello). This endpoint can be edited in `pages/service/hello.ts`.
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+The `pages/service` directory is mapped to `/service/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/service-routes/introduction) instead of React pages.
 
 ## Learn More
 
