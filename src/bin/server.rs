@@ -1,6 +1,7 @@
 use std::{net::SocketAddr, time::Duration};
 
 use axum::{error_handling::HandleErrorLayer, http::Method, routing::post, Router};
+use kube::Client;
 use tower::ServiceBuilder;
 use tower_http::cors::{CorsLayer, Origin};
 use tower_http::{add_extension::AddExtensionLayer, trace::TraceLayer};
@@ -43,7 +44,8 @@ async fn main() {
                 .allow_methods(vec![Method::GET]),
         );
 
-    let operator = Operator::new(s);
+    let client = Client::try_default().await.unwrap();
+    let operator = Operator::new(client, s);
     tokio::spawn(async move { operator.run().await });
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
