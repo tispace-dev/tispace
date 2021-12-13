@@ -10,7 +10,7 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use crate::dto::{UserLoginRequest, UserLoginResponse};
+use crate::dto::{AuthRequest, AuthResponse};
 use crate::error::AuthError;
 use crate::storage::Storage;
 
@@ -35,7 +35,7 @@ static KEYS: Lazy<Keys> = Lazy::new(|| {
 });
 
 pub async fn authorize(
-    Json(req): Json<UserLoginRequest>,
+    Json(req): Json<AuthRequest>,
     Extension(storage): Extension<Storage>,
 ) -> Result<impl IntoResponse, AuthError> {
     if req.username.is_empty() {
@@ -62,7 +62,7 @@ pub async fn authorize(
         let token = encode(&Header::default(), &claims, &KEYS.encoding)
             .map_err(|_| AuthError::TokenCreation)?;
 
-        Ok(Json(UserLoginResponse { token }))
+        Ok(Json(AuthResponse { token }))
     } else {
         Err(AuthError::WrongCredentials)
     }

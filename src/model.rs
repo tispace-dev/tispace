@@ -25,7 +25,7 @@ crate enum InstanceStatus {
     Pending,
     Running,
     Deleting,
-    Error,
+    Error(String),
 }
 
 impl fmt::Display for InstanceStatus {
@@ -34,7 +34,7 @@ impl fmt::Display for InstanceStatus {
             InstanceStatus::Pending => write!(f, "Pending"),
             InstanceStatus::Running => write!(f, "Running"),
             InstanceStatus::Deleting => write!(f, "Deleting"),
-            InstanceStatus::Error => write!(f, "Error"),
+            InstanceStatus::Error(msg) => write!(f, "Error: {}", msg),
         }
     }
 }
@@ -45,7 +45,7 @@ crate struct Instance {
     crate cpu: usize,
     crate memory: usize,
     crate disk_size: usize,
-    crate domain_name: String,
+    crate hostname: String,
     crate stage: InstanceStage,
     crate status: InstanceStatus,
 }

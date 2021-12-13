@@ -7,17 +7,18 @@ use axum::{
 };
 use crypto::pbkdf2::pbkdf2_simple;
 
+use crate::model::InstanceStatus;
 use crate::storage::Storage;
 use crate::{
     auth::UserClaims,
     dto::{
-        ChangePasswordRequest, CreateInstanceRequest, CreateInstanceResponse,
-        Instance as HttpInstance, ListInstancesResponse,
+        ChangePasswordRequest, CreateInstanceRequest, Instance as InstanceDto,
+        ListInstancesResponse,
     },
 };
 use crate::{
     error::{InstanceError, UserError},
-    model::{Instance, InstanceStage, InstanceStatus},
+    model::{Instance, InstanceStage},
 };
 
 pub fn protected_routes() -> Router {
@@ -65,7 +66,6 @@ pub fn protected_routes() -> Router {
         if req.disk_size == 0 {
             return Err(InstanceError::InvalidArgs("disk_size".to_string()));
         }
-        let domain_name = format!("{}.tispace.{}.svc.cluster.local", req.name, user.sub);
         let mut already_exists = false;
         let mut quota_exceeded = false;
         let mut created = false;
@@ -102,7 +102,10 @@ pub fn protected_routes() -> Router {
                             memory: req.memory,
                             disk_size: req.disk_size,
                             stage: InstanceStage::Pending,
-                            domain_name: domain_name.clone(),
+                            hostname: format!(
+                                "{}.{}.tispace.svc.cluster.local",
+                                req.name, u.username
+                            ),
                             status: InstanceStatus::Pending,
                         });
                         created = true;
@@ -122,7 +125,7 @@ pub fn protected_routes() -> Router {
         } else if quota_exceeded {
             Err(InstanceError::QuotaExceeded)
         } else if created {
-            Ok(Json(CreateInstanceResponse { domain_name }))
+            Ok(StatusCode::CREATED)
         } else {
             Err(InstanceError::CreateFailed)
         }
@@ -163,29 +166,26 @@ pub fn protected_routes() -> Router {
         user: UserClaims,
         Extension(storage): Extension<Storage>,
     ) -> impl IntoResponse {
-        let mut http_instances = Vec::new();
+        let mut instances = Vec::new();
         storage
             .read_only(|state| {
                 if let Some(u) = state.users.iter().find(|&u| u.username == user.sub) {
-                    http_instances = u
+                    instances = u
                         .instances
                         .iter()
-                        .map(|instance| HttpInstance {
+                        .map(|instance| InstanceDto {
                             name: instance.name.clone(),
                             cpu: instance.cpu,
                             memory: instance.memory,
                             disk_size: instance.disk_size,
-                            domain_name: instance.domain_name.clone(),
+                            hostname: instance.hostname.clone(),
                             status: instance.status.to_string(),
                         })
                         .collect();
                 }
             })
             .await;
-        let resp = ListInstancesResponse {
-            instances: http_instances,
-        };
-
+        let resp = ListInstancesResponse { instances };
         Json(resp)
     }
 

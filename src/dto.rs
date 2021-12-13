@@ -2,14 +2,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
-pub struct UserLoginRequest {
+pub struct AuthRequest {
     crate username: String,
     crate password: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
-crate struct UserLoginResponse {
+crate struct AuthResponse {
     crate token: String,
 }
 
@@ -30,18 +30,12 @@ crate struct CreateInstanceRequest {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
-crate struct CreateInstanceResponse {
-    crate domain_name: String,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
 crate struct Instance {
     crate name: String,
     crate cpu: usize,
     crate memory: usize,
     crate disk_size: usize,
-    crate domain_name: String,
+    crate hostname: String,
     crate status: String,
 }
 
