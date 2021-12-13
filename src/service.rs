@@ -11,7 +11,10 @@ use crate::model::InstanceStatus;
 use crate::storage::Storage;
 use crate::{
     auth::UserClaims,
-    dto::{ChangePasswordRequest, CreateInstanceRequest, ListInstancesResponse},
+    dto::{
+        ChangePasswordRequest, CreateInstanceRequest, Instance as InstanceDto,
+        ListInstancesResponse,
+    },
 };
 use crate::{
     error::{InstanceError, UserError},
@@ -167,7 +170,18 @@ pub fn protected_routes() -> Router {
         storage
             .read_only(|state| {
                 if let Some(u) = state.users.iter().find(|&u| u.username == user.sub) {
-                    instances = u.instances.clone();
+                    instances = u
+                        .instances
+                        .iter()
+                        .map(|instance| InstanceDto {
+                            name: instance.name.clone(),
+                            cpu: instance.cpu,
+                            memory: instance.memory,
+                            disk_size: instance.disk_size,
+                            hostname: instance.hostname.clone(),
+                            status: instance.status.to_string(),
+                        })
+                        .collect();
                 }
             })
             .await;
