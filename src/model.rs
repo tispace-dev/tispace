@@ -53,7 +53,6 @@ crate struct Instance {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 crate struct User {
     crate username: String,
-    crate password_hash: String,
     crate cpu_quota: usize,
     crate memory_quota: usize,
     crate disk_quota: usize,

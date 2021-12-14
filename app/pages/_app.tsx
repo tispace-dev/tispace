@@ -1,13 +1,13 @@
 import 'antd/dist/antd.less'
 import '../styles/globals.less'
 import type { AppProps } from 'next/app'
-import { Provider } from 'next-auth/client'
+import { SessionProvider } from 'next-auth/react'
 
 function TiSpace({ Component, pageProps }: AppProps) {
   return (
-    <Provider session={pageProps.session}>
+    <SessionProvider session={pageProps.session}>
       <Component {...pageProps} />
-    </Provider>
+    </SessionProvider>
   )
 }
 

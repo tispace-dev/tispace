@@ -431,12 +431,10 @@ impl Operator {
 
     async fn remove_orphan_service(&self, subdomain: &str) -> Result<()> {
         let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
-        match services.get(&subdomain).await {
+        match services.get(subdomain).await {
             Ok(_) => {
                 info!(subdomain = subdomain, "Deleting Service");
-                services
-                    .delete(&subdomain, &DeleteParams::default())
-                    .await?;
+                services.delete(subdomain, &DeleteParams::default()).await?;
             }
             Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
             Err(e) => {

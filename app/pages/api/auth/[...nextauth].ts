@@ -1,40 +1,39 @@
-import NextAuth, { User } from 'next-auth'
-import Providers from 'next-auth/providers'
-import axios from 'axios'
+import NextAuth from 'next-auth'
+import GoogleProvider from 'next-auth/providers/google'
 
 export default NextAuth({
   providers: [
-    Providers.Credentials({
-      name: 'Credentials',
-      async authorize(credentials: { username: string; password: string }) {
-        const user: User = await axios.post(
-          `${process.env.SERVER_URL}/authorize`,
-          {
-            username: credentials.username,
-            password: credentials.password,
-          }
-        )
-
-        if (user) {
-          return user
-        } else {
-          return null
-        }
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          prompt: 'consent',
+          access_type: 'offline',
+          response_type: 'code',
+        },
       },
     }),
   ],
   callbacks: {
-    async jwt(token, user) {
-      if (user) {
-        token.accessToken = user.token
+    async jwt({ token, account }) {
+      if (account) {
+        token.id_token = account.id_token
       }
 
       return token
     },
 
-    async session(session, token) {
-      session.accessToken = token.accessToken
+    async session({ session, token }) {
+      session.id_token = token.id_token
+
       return session
     },
+  },
+  pages: {
+    signIn: '/login',
+  },
+  jwt: {
+    secret: process.env.JWT_SECRET,
   },
 })
