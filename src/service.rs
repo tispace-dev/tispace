@@ -2,53 +2,22 @@ use axum::{
     extract::{Extension, Path},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, put},
+    routing::{delete, get},
     Json, Router,
 };
-use crypto::pbkdf2::pbkdf2_simple;
 
 use crate::model::InstanceStatus;
 use crate::storage::Storage;
 use crate::{
     auth::UserClaims,
-    dto::{
-        ChangePasswordRequest, CreateInstanceRequest, Instance as InstanceDto,
-        ListInstancesResponse,
-    },
+    dto::{CreateInstanceRequest, Instance as InstanceDto, ListInstancesResponse},
 };
 use crate::{
-    error::{InstanceError, UserError},
+    error::InstanceError,
     model::{Instance, InstanceStage},
 };
 
 pub fn protected_routes() -> Router {
-    async fn change_password(
-        user: UserClaims,
-        Json(change): Json<ChangePasswordRequest>,
-        Extension(storage): Extension<Storage>,
-    ) -> Result<impl IntoResponse, UserError> {
-        if change.new_password.is_empty() {
-            return Err(UserError::EmptyNewPassword);
-        }
-
-        match storage
-            .read_write(
-                |state| match state.users.iter_mut().find(|u| u.username == user.sub) {
-                    Some(u) => {
-                        u.password_hash = pbkdf2_simple(&change.new_password, 1024).unwrap();
-                        true
-                    }
-                    None => false,
-                },
-            )
-            .await
-        {
-            Ok(_) => (),
-            Err(_) => return Err(UserError::PasswordUpdateFailed),
-        }
-        Ok(StatusCode::NO_CONTENT)
-    }
-
     async fn create_instance(
         user: UserClaims,
         Json(req): Json<CreateInstanceRequest>,
@@ -190,7 +159,6 @@ pub fn protected_routes() -> Router {
     }
 
     Router::new()
-        .route("/user/password", put(change_password))
         .route("/instances", get(list_instances).post(create_instance))
         .route("/instances/:instance_name", delete(delete_instance))
 }

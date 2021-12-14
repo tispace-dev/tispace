@@ -1,78 +1,36 @@
 use axum::{
     async_trait,
-    extract::{Extension, FromRequest, RequestParts, TypedHeader},
-    response::IntoResponse,
-    Json,
+    extract::{FromRequest, RequestParts, TypedHeader},
 };
-use crypto::pbkdf2::pbkdf2_check;
+use google_signin;
+use google_signin::{CachedCerts, Client};
 use headers::{authorization::Bearer, Authorization};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use tokio::runtime::Runtime;
 
-use crate::dto::{AuthRequest, AuthResponse};
 use crate::error::AuthError;
-use crate::storage::Storage;
 
-#[derive(Debug)]
-struct Keys {
-    encoding: EncodingKey,
-    decoding: DecodingKey<'static>,
-}
+static CLIENT: Lazy<Client> = Lazy::new(|| {
+    let mut client = Client::new();
+    client.audiences.push(std::env::var("CLIENT_ID").unwrap());
 
-impl Keys {
-    fn new(secret: &[u8]) -> Self {
-        Self {
-            encoding: EncodingKey::from_secret(secret),
-            decoding: DecodingKey::from_secret(secret).into_static(),
-        }
-    }
-}
-
-static KEYS: Lazy<Keys> = Lazy::new(|| {
-    let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "SECRET".to_string());
-    Keys::new(secret.as_bytes())
+    client
 });
 
-pub async fn authorize(
-    Json(req): Json<AuthRequest>,
-    Extension(storage): Extension<Storage>,
-) -> Result<impl IntoResponse, AuthError> {
-    if req.username.is_empty() {
-        return Err(AuthError::MissingCredentials);
-    }
-    if req.password.is_empty() {
-        return Err(AuthError::MissingCredentials);
-    }
-    let mut verified = false;
-    storage
-        .read_only(|state| {
-            verified = state.users.iter().any(|u| {
-                u.username == req.username
-                    && pbkdf2_check(&req.password, &u.password_hash).ok().unwrap()
-            });
-        })
-        .await;
-    if verified {
-        let claims = UserClaims {
-            sub: req.username.to_string(),
-            exp: 10000000000,
-        };
-        // Create the authorization token;
-        let token = encode(&Header::default(), &claims, &KEYS.encoding)
-            .map_err(|_| AuthError::TokenCreation)?;
+static CACHEDCERTS: Lazy<CachedCerts> = Lazy::new(|| {
+    let mut certs = CachedCerts::new();
+    Runtime::new().unwrap().block_on(async {
+        certs.refresh_if_needed().await.unwrap();
+    });
 
-        Ok(Json(AuthResponse { token }))
-    } else {
-        Err(AuthError::WrongCredentials)
-    }
-}
+    certs
+});
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 crate struct UserClaims {
     crate sub: String,
-    crate exp: usize,
 }
 
 #[async_trait]
@@ -88,11 +46,11 @@ where
             TypedHeader::<Authorization<Bearer>>::from_request(req)
                 .await
                 .map_err(|_| AuthError::InvalidToken)?;
-        // Decode the user data
-        let token_data =
-            decode::<UserClaims>(bearer.token(), &KEYS.decoding, &Validation::default())
-                .map_err(|_| AuthError::InvalidToken)?;
 
-        Ok(token_data.claims)
+        let id_info = CLIENT
+            .verify(bearer.token(), &CACHEDCERTS)
+            .await
+            .map_err(|_| AuthError::InvalidToken)?;
+        Ok(UserClaims { sub: id_info.sub })
     }
 }

@@ -39,29 +39,6 @@ impl IntoResponse for AuthError {
 }
 
 #[derive(Debug, Error)]
-crate enum UserError {
-    #[error("Empty new password")]
-    EmptyNewPassword,
-    #[error("Password update failed")]
-    PasswordUpdateFailed,
-}
-
-impl IntoResponse for UserError {
-    fn into_response(self) -> Response {
-        let (status, error_message) = match self {
-            UserError::EmptyNewPassword => (StatusCode::BAD_REQUEST, self.to_string()),
-            UserError::PasswordUpdateFailed => {
-                (StatusCode::INTERNAL_SERVER_ERROR, self.to_string())
-            }
-        };
-        let body = Json(json!({
-            "error": error_message,
-        }));
-        (status, body).into_response()
-    }
-}
-
-#[derive(Debug, Error)]
 crate enum InstanceError {
     #[error("Invalid arg `{0}`")]
     InvalidArgs(String),

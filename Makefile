@@ -1,7 +1,7 @@
 build:
 	cargo build
 clippy:
-	cargo clippy
+	RUSTFLAGS=-Dwarnings cargo clippy
 run:
 	cargo run
 fmt:

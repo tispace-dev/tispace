@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
 import { Table } from 'antd'
-import { useSession } from 'next-auth/client'
+import { useSession } from 'next-auth/react'
 
 const columns = [
   {
@@ -24,8 +24,8 @@ const columns = [
 
 const Home: NextPage = () => {
   const router = useRouter()
-  const [session, loading] = useSession()
-  const shouldRedirect = !(loading || session)
+  const { data: session, status } = useSession()
+  const shouldRedirect = !(status === 'loading' || session)
 
   useEffect(() => {
     if (shouldRedirect) {
