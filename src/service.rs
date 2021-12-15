@@ -39,8 +39,8 @@ pub fn protected_routes() -> Router {
         let mut quota_exceeded = false;
         let mut created = false;
         match storage
-            .read_write(
-                |state| match state.users.iter_mut().find(|u| u.username == user.sub) {
+            .read_write(|state| {
+                match state.users.iter_mut().find(|u| u.username == user.username) {
                     Some(u) => {
                         if u.instances.len() + 1 > u.instance_quota {
                             quota_exceeded = true;
@@ -81,8 +81,8 @@ pub fn protected_routes() -> Router {
                         created
                     }
                     None => false,
-                },
-            )
+                }
+            })
             .await
         {
             Ok(_) => (),
@@ -106,8 +106,8 @@ pub fn protected_routes() -> Router {
         Extension(storage): Extension<Storage>,
     ) -> Result<impl IntoResponse, InstanceError> {
         match storage
-            .read_write(
-                |state| match state.users.iter_mut().find(|u| u.username == user.sub) {
+            .read_write(|state| {
+                match state.users.iter_mut().find(|u| u.username == user.username) {
                     Some(u) => {
                         match u.instances.iter_mut().find(|instance| {
                             instance.name == instance_name
@@ -121,8 +121,8 @@ pub fn protected_routes() -> Router {
                         }
                     }
                     None => false,
-                },
-            )
+                }
+            })
             .await
         {
             Ok(_) => (),
@@ -138,7 +138,7 @@ pub fn protected_routes() -> Router {
         let mut instances = Vec::new();
         storage
             .read_only(|state| {
-                if let Some(u) = state.users.iter().find(|&u| u.username == user.sub) {
+                if let Some(u) = state.users.iter().find(|&u| u.username == user.username) {
                     instances = u
                         .instances
                         .iter()

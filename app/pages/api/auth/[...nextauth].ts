@@ -1,4 +1,5 @@
 import NextAuth from 'next-auth'
+import axios from 'axios'
 import GoogleProvider from 'next-auth/providers/google'
 
 export default NextAuth({
@@ -16,6 +17,26 @@ export default NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ account }) {
+      try {
+        const authorized = await axios.get(
+          `${process.env.SERVER_URL}/authorized`,
+          {
+            headers: {
+              Authorization: `Bearer ${account.id_token}`,
+            },
+          }
+        )
+        if (authorized.status !== 200) {
+          return false
+        }
+      } catch (_) {
+        return false
+      }
+
+      return true
+    },
+
     async jwt({ token, account }) {
       if (account) {
         token.id_token = account.id_token
@@ -33,7 +54,5 @@ export default NextAuth({
   pages: {
     signIn: '/login',
   },
-  jwt: {
-    secret: process.env.JWT_SECRET,
-  },
+  secret: process.env.SECRET,
 })

@@ -13,12 +13,8 @@ pub type Result<T> = std::result::Result<T, BoxError>;
 
 #[derive(Debug, Error)]
 pub enum AuthError {
-    #[error("Wrong credentials")]
-    WrongCredentials,
-    #[error("Missing credentials")]
-    MissingCredentials,
-    #[error("Token creation error")]
-    TokenCreation,
+    #[error("Unauthorized user")]
+    UnauthorizedUser,
     #[error("Invalid token")]
     InvalidToken,
 }
@@ -26,9 +22,7 @@ pub enum AuthError {
 impl IntoResponse for AuthError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            AuthError::WrongCredentials => (StatusCode::UNAUTHORIZED, self.to_string()),
-            AuthError::MissingCredentials => (StatusCode::BAD_REQUEST, self.to_string()),
-            AuthError::TokenCreation => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            AuthError::UnauthorizedUser => (StatusCode::UNAUTHORIZED, self.to_string()),
             AuthError::InvalidToken => (StatusCode::BAD_REQUEST, self.to_string()),
         };
         let body = Json(json!({

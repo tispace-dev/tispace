@@ -1,11 +1,12 @@
 use std::{net::SocketAddr, time::Duration};
 
-use axum::{error_handling::HandleErrorLayer, http::Method, Router};
+use axum::{error_handling::HandleErrorLayer, http::Method, routing::get, Router};
 use kube::Client;
 use tower::ServiceBuilder;
 use tower_http::cors::{CorsLayer, Origin};
 use tower_http::{add_extension::AddExtensionLayer, trace::TraceLayer};
 
+use tispace::auth::authorized;
 use tispace::error::handle_error;
 use tispace::operator::Operator;
 use tispace::service::protected_routes;
@@ -21,6 +22,7 @@ async fn main() {
     let s: Storage = Storage::load("state.json").await.unwrap();
 
     let app = Router::new()
+        .route("/authorized", get(authorized))
         .merge(protected_routes())
         // Add middleware to all routes
         .layer(
