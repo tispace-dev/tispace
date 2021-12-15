@@ -1,15 +1,14 @@
 use anyhow::{anyhow, Result};
 use k8s_openapi::api::core::v1::{
-    Capabilities, Container, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec,
-    PersistentVolumeClaimVolumeSource, Pod, PodDNSConfig, PodSpec, ResourceRequirements,
-    SecurityContext, Service, ServiceSpec, Volume, VolumeMount,
+    Container, PersistentVolumeClaim, PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource,
+    Pod, PodDNSConfig, PodSpec, ResourceRequirements, SecurityContext, Service, ServiceSpec,
+    Volume, VolumeMount,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use kube::api::{DeleteParams, PostParams};
 use kube::error::ErrorResponse;
 use kube::{Api, Client};
-use once_cell::sync::Lazy;
 use std::collections::BTreeMap;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
@@ -18,31 +17,10 @@ use crate::model::{Instance, InstanceStage, InstanceStatus, User};
 use crate::storage::Storage;
 
 const NAMESPACE: &str = "tispace";
-const BASE_IMAGE_URL_ENV_KEY: &str = "BASE_IMAGE_URL";
-static BASE_IMAGE_URL: Lazy<String> = Lazy::new(|| std::env::var("BASE_IMAGE_URL").unwrap());
 const FAKE_IMAGE: &str = "k8s.gcr.io/pause:3.5";
-const BUSYBOX_IMAGE: &str = "busybox:1.34";
+const DEFAULT_BASE_IMAGE: &str = "tispace/ubuntu20.04:latest";
 const RBD_STORAGE_CLASS_NAME: &str = "rook-ceph-block";
-const INIT_ROOTFS_SCRIPT: &str = "set -eux; if [ ! -d /mnt/rootfs/usr ]; then \
-wget -O /mnt/rootfs.tgz \"$BASE_IMAGE_URL\"; tar -xzf /mnt/rootfs.tgz -C /mnt/rootfs; fi";
-static DEFAULT_CONTAINER_CAPS: Lazy<Vec<String>> = Lazy::new(|| {
-    vec![
-        "CHOWN".to_owned(),
-        "DAC_OVERRIDE".to_owned(),
-        "FSETID".to_owned(),
-        "FOWNER".to_owned(),
-        "MKNOD".to_owned(),
-        "NET_RAW".to_owned(),
-        "SETGID".to_owned(),
-        "SETUID".to_owned(),
-        "SETFCAP".to_owned(),
-        "SETPCAP".to_owned(),
-        "NET_BIND_SERVICE".to_owned(),
-        "SYS_CHROOT".to_owned(),
-        "KILL".to_owned(),
-        "AUDIT_WRITE".to_owned(),
-    ]
-});
+const DEFAULT_RUNTIME_CLASS_NAME: &str = "kata";
 
 fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Container {
     let memory_limit_in_mb = (memory_limit + 1024 * 1024 - 1) / 1024 / 1024;
@@ -52,10 +30,7 @@ fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Con
         image: Some(FAKE_IMAGE.to_owned()),
         image_pull_policy: Some("IfNotPresent".to_owned()),
         security_context: Some(SecurityContext {
-            capabilities: Some(Capabilities {
-                add: Some(DEFAULT_CONTAINER_CAPS.clone()),
-                ..Default::default()
-            }),
+            privileged: Some(true),
             ..Default::default()
         }),
         volume_mounts: Some(vec![VolumeMount {
@@ -80,21 +55,12 @@ fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Con
 fn build_init_container(pod_name: &str) -> Container {
     Container {
         name: format!("{}-init", pod_name),
-        command: Some(vec![
-            "sh".to_owned(),
-            "-c".to_owned(),
-            INIT_ROOTFS_SCRIPT.to_owned(),
-        ]),
-        image: Some(BUSYBOX_IMAGE.to_owned()),
+        command: Some(vec!["/init-rootfs.sh".to_owned()]),
+        image: Some(DEFAULT_BASE_IMAGE.to_owned()),
         image_pull_policy: Some("IfNotPresent".to_owned()),
-        env: Some(vec![EnvVar {
-            name: BASE_IMAGE_URL_ENV_KEY.to_owned(),
-            value: Some(BASE_IMAGE_URL.to_owned()),
-            ..Default::default()
-        }]),
         volume_mounts: Some(vec![VolumeMount {
             name: "rootfs".to_owned(),
-            mount_path: "/mnt/rootfs".to_owned(),
+            mount_path: "/tmp/rootfs".to_owned(),
             ..Default::default()
         }]),
         ..Default::default()
@@ -187,6 +153,7 @@ fn build_pod(
                 searches: Some(vec![format!("{}.tispace.svc.cluster.local", subdomain)]),
                 ..Default::default()
             }),
+            runtime_class_name: Some(DEFAULT_RUNTIME_CLASS_NAME.to_owned()),
             ..Default::default()
         }),
         ..Default::default()
