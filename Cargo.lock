@@ -1561,6 +1561,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "base64 0.13.0",
  "google-signin",
  "headers",
  "k8s-openapi",

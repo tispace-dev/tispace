@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use k8s_openapi::api::core::v1::{
-    Container, PersistentVolumeClaim, PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource,
-    Pod, PodDNSConfig, PodSpec, ResourceRequirements, SecurityContext, Service, ServiceSpec,
-    Volume, VolumeMount,
+    Container, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec,
+    PersistentVolumeClaimVolumeSource, Pod, PodDNSConfig, PodSpec, ResourceRequirements,
+    SecurityContext, Service, ServiceSpec, Volume, VolumeMount,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
@@ -21,6 +21,7 @@ const FAKE_IMAGE: &str = "k8s.gcr.io/pause:3.5";
 const DEFAULT_BASE_IMAGE: &str = "tispace/ubuntu2004:latest";
 const RBD_STORAGE_CLASS_NAME: &str = "rook-ceph-block";
 const DEFAULT_RUNTIME_CLASS_NAME: &str = "kata";
+const PASSWORD_ENV_KEY: &str = "PASSWORD";
 
 fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Container {
     let memory_limit_in_mb = (memory_limit + 1024 * 1024 - 1) / 1024 / 1024;
@@ -52,7 +53,7 @@ fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Con
     }
 }
 
-fn build_init_container(pod_name: &str) -> Container {
+fn build_init_container(pod_name: &str, password: &str) -> Container {
     Container {
         name: format!("{}-init", pod_name),
         command: Some(vec!["/init-rootfs.sh".to_owned()]),
@@ -61,6 +62,11 @@ fn build_init_container(pod_name: &str) -> Container {
         volume_mounts: Some(vec![VolumeMount {
             name: "rootfs".to_owned(),
             mount_path: "/tmp/rootfs".to_owned(),
+            ..Default::default()
+        }]),
+        env: Some(vec![EnvVar {
+            name: PASSWORD_ENV_KEY.to_owned(),
+            value: Some(base64::encode(password)),
             ..Default::default()
         }]),
         ..Default::default()
@@ -130,6 +136,7 @@ fn build_pod(
     memory_limit: usize,
     hostname: &str,
     subdomain: &str,
+    password: &str,
 ) -> Pod {
     Pod {
         metadata: ObjectMeta {
@@ -146,7 +153,7 @@ fn build_pod(
             subdomain: Some(subdomain.to_owned()),
             automount_service_account_token: Some(false),
             containers: vec![build_container(pod_name, cpu_limit, memory_limit)],
-            init_containers: Some(vec![build_init_container(pod_name)]),
+            init_containers: Some(vec![build_init_container(pod_name, password)]),
             volumes: Some(vec![build_rootfs_volume(pod_name)]),
             restart_policy: Some("Always".to_owned()),
             dns_config: Some(PodDNSConfig {
@@ -296,6 +303,7 @@ impl Operator {
                     instance.memory,
                     &hostname,
                     &subdomain,
+                    &instance.password,
                 );
                 pods.create(&PostParams::default(), &pod).await?;
             }

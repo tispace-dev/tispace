@@ -35,6 +35,9 @@ pub fn protected_routes() -> Router {
         if req.disk_size == 0 {
             return Err(InstanceError::InvalidArgs("disk_size".to_string()));
         }
+        if req.password.is_empty() {
+            return Err(InstanceError::InvalidArgs("password".to_string()));
+        }
         let mut already_exists = false;
         let mut quota_exceeded = false;
         let mut created = false;
@@ -75,6 +78,7 @@ pub fn protected_routes() -> Router {
                                 "{}.{}.tispace.svc.cluster.local",
                                 req.name, u.username
                             ),
+                            password: req.password.clone(),
                             status: InstanceStatus::Pending,
                         });
                         created = true;
@@ -139,18 +143,7 @@ pub fn protected_routes() -> Router {
         storage
             .read_only(|state| {
                 if let Some(u) = state.users.iter().find(|&u| u.username == user.username) {
-                    instances = u
-                        .instances
-                        .iter()
-                        .map(|instance| InstanceDto {
-                            name: instance.name.clone(),
-                            cpu: instance.cpu,
-                            memory: instance.memory,
-                            disk_size: instance.disk_size,
-                            hostname: instance.hostname.clone(),
-                            status: instance.status.to_string(),
-                        })
-                        .collect();
+                    instances = u.instances.iter().map(InstanceDto::from).collect();
                 }
             })
             .await;

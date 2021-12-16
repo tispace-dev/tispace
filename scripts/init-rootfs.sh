@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 set -eux
 
@@ -23,5 +23,14 @@ if [ ! -d /tmp/rootfs/usr ]; then
   fi
   set -e
   tar -xzf /tmp/rootfs.tgz -C /tmp/rootfs
+  echo "$PASSWORD" | base64 -d >/tmp/password
+  psw_hash=$(openssl passwd -6 -in /tmp/password)
+  psw_entry=root:"$psw_hash:$(($(date +%s) / 86400))":0:99999:7:::
+  sed -i "s@^root.*\$@${psw_entry}@g" /tmp/rootfs/etc/shadow
+  rm -f /tmp/rootfs/etc/ssh/ssh_host_*
+  ssh-keygen -q -N "" -t dsa -f /tmp/rootfs/etc/ssh/ssh_host_dsa_key
+  ssh-keygen -q -N "" -t rsa -b 4096 -f /tmp/rootfs/etc/ssh/ssh_host_rsa_key
+  ssh-keygen -q -N "" -t ecdsa -f /tmp/rootfs/etc/ssh/ssh_host_ecdsa_key
+  ssh-keygen -q -N "" -t ed25519 -f /tmp/rootfs/etc/ssh/ssh_host_ed25519_key
   rm -f /tmp/rootfs/rootfs-initing
 fi
