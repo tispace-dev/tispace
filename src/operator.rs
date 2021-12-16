@@ -18,7 +18,7 @@ use crate::storage::Storage;
 
 const NAMESPACE: &str = "tispace";
 const FAKE_IMAGE: &str = "k8s.gcr.io/pause:3.5";
-const DEFAULT_BASE_IMAGE: &str = "tispace/ubuntu20.04:latest";
+const DEFAULT_BASE_IMAGE: &str = "tispace/ubuntu2004:latest";
 const RBD_STORAGE_CLASS_NAME: &str = "rook-ceph-block";
 const DEFAULT_RUNTIME_CLASS_NAME: &str = "kata";
 
