@@ -7,7 +7,6 @@ crate struct CreateInstanceRequest {
     crate cpu: usize,
     crate memory: usize,
     crate disk_size: usize,
-    crate password: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -18,6 +17,7 @@ crate struct Instance {
     crate memory: usize,
     crate disk_size: usize,
     crate hostname: String,
+    crate password: String,
     crate status: String,
 }
 
@@ -29,6 +29,7 @@ impl From<&crate::model::Instance> for Instance {
             memory: m.memory,
             disk_size: 0,
             hostname: m.hostname.clone(),
+            password: m.password.clone(),
             status: m.status.to_string(),
         }
     }

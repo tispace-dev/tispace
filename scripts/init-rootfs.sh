@@ -23,8 +23,7 @@ if [ ! -d /tmp/rootfs/usr ]; then
   fi
   set -e
   tar -xzf /tmp/rootfs.tgz -C /tmp/rootfs
-  echo "$PASSWORD" | base64 -d >/tmp/password
-  psw_hash=$(openssl passwd -6 -in /tmp/password)
+  psw_hash=$(openssl passwd -6 "$PASSWORD")
   psw_entry=root:"$psw_hash:$(($(date +%s) / 86400))":0:99999:7:::
   sed -i "s@^root.*\$@${psw_entry}@g" /tmp/rootfs/etc/shadow
   rm -f /tmp/rootfs/etc/ssh/ssh_host_*

@@ -5,6 +5,7 @@ use axum::{
     routing::{delete, get},
     Json, Router,
 };
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
 use crate::model::InstanceStatus;
 use crate::storage::Storage;
@@ -34,9 +35,6 @@ pub fn protected_routes() -> Router {
         }
         if req.disk_size == 0 {
             return Err(InstanceError::InvalidArgs("disk_size".to_string()));
-        }
-        if req.password.is_empty() {
-            return Err(InstanceError::InvalidArgs("password".to_string()));
         }
         let mut already_exists = false;
         let mut quota_exceeded = false;
@@ -78,7 +76,11 @@ pub fn protected_routes() -> Router {
                                 "{}.{}.tispace.svc.cluster.local",
                                 req.name, u.username
                             ),
-                            password: req.password.clone(),
+                            password: thread_rng()
+                                .sample_iter(&Alphanumeric)
+                                .take(16)
+                                .map(char::from)
+                                .collect(),
                             status: InstanceStatus::Pending,
                         });
                         created = true;

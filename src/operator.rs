@@ -66,7 +66,7 @@ fn build_init_container(pod_name: &str, password: &str) -> Container {
         }]),
         env: Some(vec![EnvVar {
             name: PASSWORD_ENV_KEY.to_owned(),
-            value: Some(base64::encode(password)),
+            value: Some(password.to_owned()),
             ..Default::default()
         }]),
         ..Default::default()
