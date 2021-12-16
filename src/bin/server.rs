@@ -1,9 +1,9 @@
 use std::{net::SocketAddr, time::Duration};
 
-use axum::{error_handling::HandleErrorLayer, http::Method, routing::get, Router};
+use axum::{error_handling::HandleErrorLayer, routing::get, Router};
 use kube::Client;
 use tower::ServiceBuilder;
-use tower_http::cors::{CorsLayer, Origin};
+use tower_http::cors::{any, CorsLayer, Origin};
 use tower_http::{add_extension::AddExtensionLayer, trace::TraceLayer};
 
 use tispace::auth::authorized;
@@ -41,7 +41,8 @@ async fn main() {
             // for more details
             CorsLayer::new()
                 .allow_origin(Origin::exact("http://localhost:3000".parse().unwrap()))
-                .allow_methods(vec![Method::GET]),
+                .allow_methods(any())
+                .allow_headers(any()),
         );
 
     let client = Client::try_default().await.unwrap();

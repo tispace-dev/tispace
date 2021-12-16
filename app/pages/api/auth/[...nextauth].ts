@@ -20,7 +20,7 @@ export default NextAuth({
     async signIn({ account }) {
       try {
         const authorized = await axios.get(
-          `${process.env.SERVER_URL}/authorized`,
+          `${process.env.NEXT_PUBLIC_SERVER_URL}/authorized`,
           {
             headers: {
               Authorization: `Bearer ${account.id_token}`,
