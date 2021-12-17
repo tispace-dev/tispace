@@ -71,7 +71,7 @@ pub fn protected_routes() -> Router {
                             cpu: req.cpu,
                             memory: req.memory,
                             disk_size: req.disk_size,
-                            stage: InstanceStage::Pending,
+                            stage: InstanceStage::Running,
                             hostname: format!(
                                 "{}.{}.tispace.svc.cluster.local",
                                 req.name, u.username
@@ -81,7 +81,7 @@ pub fn protected_routes() -> Router {
                                 .take(16)
                                 .map(char::from)
                                 .collect(),
-                            status: InstanceStatus::Pending,
+                            status: InstanceStatus::Starting,
                         });
                         created = true;
                         created
@@ -117,10 +117,11 @@ pub fn protected_routes() -> Router {
                     Some(u) => {
                         match u.instances.iter_mut().find(|instance| {
                             instance.name == instance_name
-                                && instance.stage != InstanceStage::Deleting
+                                && instance.stage != InstanceStage::Deleted
                         }) {
                             Some(instance) => {
-                                instance.stage = InstanceStage::Deleting;
+                                instance.stage = InstanceStage::Deleted;
+                                instance.status = InstanceStatus::Deleting;
                                 true
                             }
                             None => false,
