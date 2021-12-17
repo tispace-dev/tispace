@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use either::Either;
 use k8s_openapi::api::core::v1::{
     Container, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec,
     PersistentVolumeClaimVolumeSource, Pod, PodDNSConfig, PodSpec, ResourceRequirements,
@@ -182,30 +183,74 @@ impl Operator {
             let state = self.storage.snapshot().await;
             for user in &state.users {
                 for instance in &user.instances {
-                    if let Err(e) = match instance.stage {
-                        InstanceStage::Pending | InstanceStage::Running => {
-                            self.ensure_instance_is_running(user, instance).await
+                    match instance.stage {
+                        InstanceStage::Stopped => {
+                            if instance.status != InstanceStatus::Stopped {
+                                info!(
+                                    username = user.username.as_str(),
+                                    instance = instance.name.as_str(),
+                                    "stopping instance"
+                                );
+                                if let Err(e) = self.stop_instance(user, instance).await {
+                                    warn!(
+                                        username = user.username.as_str(),
+                                        instance = instance.name.as_str(),
+                                        error = e.to_string().as_str(),
+                                        "stoping instance encountered error"
+                                    );
+                                }
+                            }
                         }
-                        InstanceStage::Deleting => {
-                            self.ensure_instance_is_deleted(user, instance).await
+                        InstanceStage::Running => {
+                            if instance.status != InstanceStatus::Running {
+                                info!(
+                                    username = user.username.as_str(),
+                                    instance = instance.name.as_str(),
+                                    "starting instance"
+                                );
+                                if let Err(e) = self.start_instance(user, instance).await {
+                                    warn!(
+                                        username = user.username.as_str(),
+                                        instance = instance.name.as_str(),
+                                        error = e.to_string().as_str(),
+                                        "starting instance encountered error"
+                                    );
+                                }
+                            }
                         }
-                    } {
+                        InstanceStage::Deleted => {
+                            info!(
+                                username = user.username.as_str(),
+                                instance = instance.name.as_str(),
+                                "deleting instance"
+                            );
+                            if let Err(e) = self.delete_instance(user, instance).await {
+                                warn!(
+                                    username = user.username.as_str(),
+                                    instance = instance.name.as_str(),
+                                    error = e.to_string().as_str(),
+                                    "deleting instance encountered error"
+                                );
+                            }
+                        }
+                    }
+                    if let Err(e) = self.update_instance_status(user, instance).await {
                         warn!(
                             username = user.username.as_str(),
                             instance = instance.name.as_str(),
                             error = e.to_string().as_str(),
-                            "Failed to sync instance status"
+                            "updating instance status encountered error"
                         );
                     }
                 }
                 // If a user has no instance, delete the Service.
                 if user.instances.is_empty() {
                     let subdomain = user.username.as_str();
-                    if let Err(e) = self.remove_orphan_service(subdomain).await {
+                    if let Err(e) = self.delete_service(subdomain).await {
                         warn!(
-                            subdomain = subdomain,
+                            username = user.username.as_str(),
                             error = e.to_string().as_str(),
-                            "Failed to remove orphan service"
+                            "deleting service encountered error"
                         );
                     }
                 }
@@ -214,11 +259,21 @@ impl Operator {
         }
     }
 
-    crate async fn ensure_instance_is_running(
-        &self,
-        user: &User,
-        instance: &Instance,
-    ) -> Result<()> {
+    async fn delete_pod(&self, pod_name: &str) -> Result<()> {
+        let pods: Api<Pod> = Api::namespaced(self.client.clone(), NAMESPACE);
+        match pods.delete(pod_name, &DeleteParams::default()).await {
+            Ok(_) | Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => Ok(()),
+            Err(e) => Err(anyhow!(e)),
+        }
+    }
+
+    async fn stop_instance(&self, user: &User, instance: &Instance) -> Result<()> {
+        let pod_name = format!("{}-{}", user.username, instance.name);
+        info!("deleting pod {}", pod_name);
+        self.delete_pod(&pod_name).await
+    }
+
+    async fn start_instance(&self, user: &User, instance: &Instance) -> Result<()> {
         // 1. Ensure Service is created.
         let hostname = instance.name.clone();
         let subdomain = user.username.clone();
@@ -226,12 +281,7 @@ impl Operator {
         match services.get(&subdomain).await {
             Ok(_) => {}
             Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
-                info!(
-                    username = user.username.as_str(),
-                    instance = instance.name.as_str(),
-                    subdomain = subdomain.as_str(),
-                    "Creating Service"
-                );
+                info!("creating service {}", subdomain);
                 let service = build_service(&subdomain);
                 services.create(&PostParams::default(), &service).await?;
             }
@@ -247,11 +297,7 @@ impl Operator {
         match pvcs.get(&pvc_name).await {
             Ok(_) => {}
             Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
-                info!(
-                    username = user.username.as_str(),
-                    instance = instance.name.as_str(),
-                    "Creating PersistentVolumeClaim"
-                );
+                info!("creating persistentvolumeclaim {}", pvc_name);
                 let pvc = build_rootfs_pvc(&pod_name, instance.disk_size);
                 pvcs.create(&PostParams::default(), &pvc).await?;
             }
@@ -260,43 +306,12 @@ impl Operator {
             }
         }
 
-        // 3. Ensure Pod is running.
-        let mut new_stage = instance.stage.clone();
-        let mut new_status = instance.status.clone();
+        // 3. Ensure Pod is created.
         let pods: Api<Pod> = Api::namespaced(self.client.clone(), NAMESPACE);
         match pods.get(&pod_name).await {
-            Ok(pod) => {
-                let pod_status = pod
-                    .status
-                    .map(|s| s.phase.unwrap_or_default())
-                    .unwrap_or_default();
-                if pod_status == "Running" {
-                    new_stage = InstanceStage::Running;
-                    new_status = InstanceStatus::Running;
-                } else if instance.stage == InstanceStage::Running {
-                    new_status = InstanceStatus::Error(format!("Pod is {}", pod_status));
-                    warn!(
-                        username = user.username.as_str(),
-                        instance = instance.name.as_str(),
-                        pod_status = pod_status.as_str(),
-                        "Pod status is abnormal"
-                    );
-                }
-            }
+            Ok(_) => {}
             Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
-                if instance.stage == InstanceStage::Running {
-                    new_status = InstanceStatus::Error("Pod is missing".to_owned());
-                    warn!(
-                        username = user.username.as_str(),
-                        instance = instance.name.as_str(),
-                        "Pod is missing"
-                    );
-                }
-                info!(
-                    username = user.username.as_str(),
-                    instance = instance.name.as_str(),
-                    "Creating Pod"
-                );
+                info!("creating pod {}", pod_name);
                 let pod = build_pod(
                     &pod_name,
                     instance.cpu,
@@ -311,111 +326,147 @@ impl Operator {
                 return Err(anyhow!(e));
             }
         }
-
-        // 4. Update instance status.
-        if new_stage != instance.stage || new_status != instance.status {
-            self.storage
-                .read_write(|state| {
-                    if let Some(u) = state.users.iter_mut().find(|u| u.username == user.username) {
-                        for i in 0..u.instances.len() {
-                            if u.instances[i].name == instance.name {
-                                u.instances[i].stage = new_stage.clone();
-                                u.instances[i].status = new_status.clone();
-                                return true;
-                            }
-                        }
-                    }
-                    false
-                })
-                .await
-                .unwrap();
-        }
         Ok(())
     }
 
-    crate async fn ensure_instance_is_deleted(
-        &self,
-        user: &User,
-        instance: &Instance,
-    ) -> Result<()> {
-        let mut deleted = true;
-
+    async fn delete_instance(&self, user: &User, instance: &Instance) -> Result<()> {
         // 1. Try to delete the Pod.
         let pod_name = format!("{}-{}", user.username, instance.name);
-        let pods: Api<Pod> = Api::namespaced(self.client.clone(), NAMESPACE);
-        match pods.get(&pod_name).await {
-            Ok(_pod) => {
-                deleted = false;
-                info!(
-                    username = user.username.as_str(),
-                    instance = instance.name.as_str(),
-                    "Deleting Pod"
-                );
-                pods.delete(&pod_name, &DeleteParams::default()).await?;
-            }
-            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
-            Err(e) => {
-                return Err(anyhow!(e));
-            }
-        }
+        info!("deleting pod {}", pod_name);
+        self.delete_pod(&pod_name).await?;
 
         // 2. Try to delete the PersistentVolumeClaim.
         let pvc_name = rootfs_name(&pod_name);
         let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
-        match pvcs.get(&pvc_name).await {
-            Ok(_) => {
-                deleted = false;
-                info!(
-                    username = user.username.as_str(),
-                    instance = instance.name.as_str(),
-                    "Deleting PersistentVolumeClaim"
-                );
-                pvcs.delete(&pvc_name, &DeleteParams::default()).await?;
+        info!("deleting persistentvolumeclaim {}", pvc_name);
+        match pvcs.delete(&pvc_name, &DeleteParams::default()).await {
+            Ok(_) | Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => Ok(()),
+            Err(e) => Err(anyhow!(e)),
+        }
+    }
+
+    async fn delete_service(&self, subdomain: &str) -> Result<()> {
+        let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
+        match services.delete(subdomain, &DeleteParams::default()).await {
+            Ok(Either::Left(_)) => {
+                info!("deleting service {}", subdomain);
+            }
+            Ok(Either::Right(_)) => {
+                info!("deleted service {}", subdomain);
             }
             Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
             Err(e) => {
                 return Err(anyhow!(e));
             }
         }
-
-        // 3. If both Pod and PersistentVolumeClaim are deleted, remove the instance from storage state.
-        if deleted {
-            self.storage
-                .read_write(|state| {
-                    if let Some(u) = state.users.iter_mut().find(|u| u.username == user.username) {
-                        for i in 0..u.instances.len() {
-                            if u.instances[i].name == instance.name {
-                                u.instances.remove(i);
-                                return true;
-                            }
-                        }
-                    }
-                    false
-                })
-                .await
-                .unwrap();
-            info!(
-                username = user.username.as_str(),
-                instance = instance.name.as_str(),
-                "Instance is deleted"
-            );
-        }
-
         Ok(())
     }
 
-    async fn remove_orphan_service(&self, subdomain: &str) -> Result<()> {
-        let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
-        match services.get(subdomain).await {
-            Ok(_) => {
-                info!(subdomain = subdomain, "Deleting Service");
-                services.delete(subdomain, &DeleteParams::default()).await?;
+    async fn update_instance_status(&self, user: &User, instance: &Instance) -> Result<()> {
+        let pod_name = format!("{}-{}", user.username, instance.name);
+        let pods: Api<Pod> = Api::namespaced(self.client.clone(), NAMESPACE);
+        let pvc_name = rootfs_name(&pod_name);
+        let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
+        let mut new_status = instance.status.clone();
+        let mut deleted = false;
+        match instance.stage {
+            InstanceStage::Stopped => match pods.get(&pod_name).await {
+                Ok(_) => {}
+                Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
+                    new_status = InstanceStatus::Stopped;
+                }
+                Err(e) => {
+                    return Err(anyhow!(e));
+                }
+            },
+            InstanceStage::Running => {
+                match pods.get(&pod_name).await {
+                    Ok(pod) => {
+                        let pod_status = pod
+                            .status
+                            .map(|s| s.phase.unwrap_or_default())
+                            .unwrap_or_default();
+                        if pod_status == "Running" {
+                            new_status = InstanceStatus::Running;
+                        } else {
+                            match instance.status {
+                                InstanceStatus::Running | InstanceStatus::Error(_) => {
+                                    new_status =
+                                        InstanceStatus::Error(format!("Pod is {}", pod_status));
+                                    warn!(
+                                        username = user.username.as_str(),
+                                        instance = instance.name.as_str(),
+                                        pod_status = pod_status.as_str(),
+                                        "pod status is abnormal"
+                                    );
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
+                        match instance.status {
+                            InstanceStatus::Running | InstanceStatus::Error(_) => {
+                                new_status = InstanceStatus::Error("Pod is missing".to_owned());
+                                warn!(
+                                    username = user.username.as_str(),
+                                    instance = instance.name.as_str(),
+                                    "pod is missing"
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
+                    Err(e) => {
+                        return Err(anyhow!(e));
+                    }
+                };
             }
-            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
-            Err(e) => {
-                return Err(anyhow!(e));
+            InstanceStage::Deleted => {
+                deleted = true;
+                match pods.get(&pod_name).await {
+                    Ok(_) => {}
+                    Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
+                        deleted = false;
+                    }
+                    Err(e) => {
+                        return Err(anyhow!(e));
+                    }
+                };
+                match pvcs.get(&pvc_name).await {
+                    Ok(_) => {}
+                    Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
+                        deleted = false;
+                    }
+                    Err(e) => {
+                        return Err(anyhow!(e));
+                    }
+                }
             }
         }
-        Ok(())
+        // Status is unchanged, skip writing storage.
+        if !deleted && new_status == instance.status {
+            return Ok(());
+        }
+        self.storage
+            .read_write(|state| {
+                if let Some(u) = state.users.iter_mut().find(|u| u.username == user.username) {
+                    for i in 0..u.instances.len() {
+                        if u.instances[i].name == instance.name
+                            && u.instances[i].stage == instance.stage
+                        {
+                            if deleted {
+                                u.instances.remove(i);
+                            } else {
+                                u.instances[i].status = new_status.clone();
+                            }
+                            return true;
+                        }
+                    }
+                }
+                false
+            })
+            .await
+            .map_err(|e| anyhow!(e))
     }
 }

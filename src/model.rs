@@ -5,25 +5,27 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 crate enum InstanceStage {
-    Pending,
+    Stopped,
     Running,
-    Deleting,
+    Deleted,
 }
 
 impl fmt::Display for InstanceStage {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            InstanceStage::Pending => write!(f, "Pending"),
+            InstanceStage::Stopped => write!(f, "Stopped"),
             InstanceStage::Running => write!(f, "Running"),
-            InstanceStage::Deleting => write!(f, "Deleting"),
+            InstanceStage::Deleted => write!(f, "Deleted"),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 crate enum InstanceStatus {
-    Pending,
+    Starting,
     Running,
+    Stopping,
+    Stopped,
     Deleting,
     Error(String),
 }
@@ -31,8 +33,10 @@ crate enum InstanceStatus {
 impl fmt::Display for InstanceStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            InstanceStatus::Pending => write!(f, "Pending"),
+            InstanceStatus::Starting => write!(f, "Starting"),
             InstanceStatus::Running => write!(f, "Running"),
+            InstanceStatus::Stopping => write!(f, "Stopping"),
+            InstanceStatus::Stopped => write!(f, "Stopped"),
             InstanceStatus::Deleting => write!(f, "Deleting"),
             InstanceStatus::Error(msg) => write!(f, "Error: {}", msg),
         }
