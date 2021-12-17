@@ -8,14 +8,16 @@ use headers::{authorization::Bearer, Authorization};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use tokio::sync::OnceCell;
-use tracing::{warn};
+use tracing::warn;
 
 use crate::error::AuthError;
 use crate::storage::Storage;
 
 static CLIENT: Lazy<Client> = Lazy::new(|| {
     let mut client = Client::new();
-    client.audiences.push(std::env::var("GOOGLE_CLIENT_ID").unwrap());
+    client
+        .audiences
+        .push(std::env::var("GOOGLE_CLIENT_ID").unwrap());
 
     client
 });
@@ -68,10 +70,11 @@ where
                 certs
             })
             .await;
-        let id_info = CLIENT
-            .verify(bearer.token(), certs)
-            .await
-            .map_err(|_| AuthError::InvalidToken)?;
+        let id_info = CLIENT.verify(bearer.token(), certs).await.map_err(|e| {
+            warn!("verify token err {:?}", e);
+            AuthError::InvalidToken
+        })?;
+
         let email = id_info.email.ok_or(AuthError::InvalidToken)?;
         let username = email.replace(id_info.hd.ok_or(AuthError::InvalidToken)?.as_str(), "");
 
