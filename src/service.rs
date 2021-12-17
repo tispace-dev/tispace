@@ -5,6 +5,7 @@ use axum::{
     routing::{delete, get},
     Json, Router,
 };
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
 use crate::model::InstanceStatus;
 use crate::storage::Storage;
@@ -75,6 +76,11 @@ pub fn protected_routes() -> Router {
                                 "{}.{}.tispace.svc.cluster.local",
                                 req.name, u.username
                             ),
+                            password: thread_rng()
+                                .sample_iter(&Alphanumeric)
+                                .take(16)
+                                .map(char::from)
+                                .collect(),
                             status: InstanceStatus::Pending,
                         });
                         created = true;
@@ -139,18 +145,7 @@ pub fn protected_routes() -> Router {
         storage
             .read_only(|state| {
                 if let Some(u) = state.users.iter().find(|&u| u.username == user.username) {
-                    instances = u
-                        .instances
-                        .iter()
-                        .map(|instance| InstanceDto {
-                            name: instance.name.clone(),
-                            cpu: instance.cpu,
-                            memory: instance.memory,
-                            disk_size: instance.disk_size,
-                            hostname: instance.hostname.clone(),
-                            status: instance.status.to_string(),
-                        })
-                        .collect();
+                    instances = u.instances.iter().map(InstanceDto::from).collect();
                 }
             })
             .await;

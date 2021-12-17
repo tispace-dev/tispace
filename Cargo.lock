@@ -1566,6 +1566,7 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "once_cell",
+ "rand",
  "serde",
  "serde_json",
  "thiserror",
