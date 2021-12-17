@@ -425,19 +425,19 @@ impl Operator {
             InstanceStage::Deleted => {
                 deleted = true;
                 match pods.get(&pod_name).await {
-                    Ok(_) => {}
-                    Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
+                    Ok(_) => {
                         deleted = false;
                     }
+                    Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
                     Err(e) => {
                         return Err(anyhow!(e));
                     }
                 };
                 match pvcs.get(&pvc_name).await {
-                    Ok(_) => {}
-                    Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
+                    Ok(_) => {
                         deleted = false;
                     }
+                    Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
                     Err(e) => {
                         return Err(anyhow!(e));
                     }
