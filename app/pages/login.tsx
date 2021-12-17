@@ -1,10 +1,10 @@
 import type { NextPage } from 'next'
 import { signIn } from 'next-auth/react'
-import Head from 'next/head'
-import Image from 'next/image'
 import { Button } from 'antd'
+import Head from 'next/head'
 
 import styles from '../styles/Login.module.less'
+import Footer from '../components/footer'
 
 const Login: NextPage = () => {
   const onFinish = async () => {
@@ -20,7 +20,6 @@ const Login: NextPage = () => {
         <meta name="description" content="TiSpace" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-
       <main className={styles.main}>
         <h1 className={styles.title}>Welcome to TiSpace!</h1>
         <div className={styles.login}>
@@ -34,19 +33,7 @@ const Login: NextPage = () => {
           </Button>
         </div>
       </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <span className={styles.logo}>
-            <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
-          </span>
-        </a>
-      </footer>
+      <Footer />
     </div>
   )
 }

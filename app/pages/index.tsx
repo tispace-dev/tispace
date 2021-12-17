@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
 import { message, Table } from 'antd'
 import { useSession } from 'next-auth/react'
 
+import Layout from '../components/layout'
 import { listInstance } from '../lib/service/instanceService'
 
 const columns = [
@@ -63,7 +64,11 @@ const Home: NextPage = () => {
     })()
   }, [shouldRedirect, router])
 
-  return <Table dataSource={instances} columns={columns} />
+  return (
+    <Layout selectedKey={'instances'} breadcrumb={'Instances'}>
+      <Table dataSource={instances} columns={columns} />
+    </Layout>
+  )
 }
 
 export default Home

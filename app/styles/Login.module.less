@@ -9,69 +9,48 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-  }
 
-  .footer {
-    display: flex;
-    flex: 1;
-    padding: 2rem 0;
-    border-top: 1px solid #eaeaea;
-    justify-content: center;
-    align-items: center;
-  }
+    .title a {
+      color: #0070f3;
+      text-decoration: none;
+    }
 
-  .footer a {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-grow: 1;
-  }
+    .title a:hover,
+    .title a:focus,
+    .title a:active {
+      text-decoration: underline;
+    }
 
-  .title a {
-    color: #0070f3;
-    text-decoration: none;
-  }
+    .title {
+      margin: 0;
+      line-height: 1.15;
+      font-size: 4rem;
+    }
 
-  .title a:hover,
-  .title a:focus,
-  .title a:active {
-    text-decoration: underline;
-  }
+    .title,
+    .description {
+      text-align: center;
+    }
 
-  .title {
-    margin: 0;
-    line-height: 1.15;
-    font-size: 4rem;
-  }
+    .description {
+      margin: 4rem 0;
+      line-height: 1.5;
+      font-size: 1.5rem;
+    }
 
-  .title,
-  .description {
-    text-align: center;
-  }
+    .login {
+      max-height: 24vh;
+      max-width: 24vh;
+      margin: 4rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
 
-  .description {
-    margin: 4rem 0;
-    line-height: 1.5;
-    font-size: 1.5rem;
-  }
-
-  .logo {
-    height: 1em;
-    margin-left: 0.5rem;
-  }
-
-  .login {
-    max-height: 24vh;
-    max-width: 24vh;
-    margin: 4rem;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-
-    .submit {
-      width: 100%;
+      .submit {
+        width: 100%;
+      }
     }
   }
 }
