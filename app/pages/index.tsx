@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react'
 
 import Layout from '../components/layout'
 import { listInstance } from '../lib/service/instanceService'
-import { RefreshIdTokenError } from './api/auth/[...nextauth]'
 
 const columns = [
   {
@@ -48,15 +47,15 @@ const Home: NextPage = () => {
   const [instances, setInstances] = useState([])
 
   useEffect(() => {
-    const shouldRedirect =
-      !(status === 'loading' || session) ||
-      (session && session.error === RefreshIdTokenError)
-
-    if (shouldRedirect) {
-      router.push('/login')
-    }
-
     ;(async () => {
+      const shouldRedirect =
+        !(status === 'loading' || session) ||
+        (session && session.error === 'RefreshIdTokenError')
+
+      if (shouldRedirect) {
+        await router.push('/login')
+      }
+
       try {
         const instances = await listInstance()
         setInstances(instances.data.instances)
