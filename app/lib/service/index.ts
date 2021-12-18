@@ -67,7 +67,7 @@ service.interceptors.response.use(
           break
         default:
           notification.open({
-            message: 'Attention',
+            message: 'Sorry',
             description: error.response.data.error,
           })
           break
