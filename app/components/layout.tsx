@@ -2,7 +2,7 @@ import React from 'react'
 import { Breadcrumb, Layout as AntDesignLayout, Menu } from 'antd'
 
 import Header from './header'
-import styles from '../styles/Layout.module.less'
+import styles from '../styles/layout.module.less'
 import Footer from './footer'
 
 const { Content } = AntDesignLayout

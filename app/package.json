@@ -9,17 +9,21 @@
   },
   "dependencies": {
     "@ant-design/icons": "4.7.0",
+    "@react-three/drei": "^7.16.3",
+    "@react-three/fiber": "^7.0.16",
     "antd": "4.17.3",
     "axios": "^0.24.0",
     "next": "12.0.7",
     "next-auth": "4.0.5",
     "next-plugin-antd-less": "^1.6.0",
     "react": "17.0.2",
-    "react-dom": "17.0.2"
+    "react-dom": "17.0.2",
+    "three": "^0.135.0"
   },
   "devDependencies": {
     "@types/node": "17.0.0",
     "@types/react": "17.0.37",
+    "@types/three": "^0.135.0",
     "@typescript-eslint/eslint-plugin": "^5.7.0",
     "babel-plugin-import": "^1.13.3",
     "eslint": "8.4.1",

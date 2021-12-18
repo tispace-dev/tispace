@@ -1,7 +1,7 @@
 import { Layout } from 'antd'
 import React from 'react'
 
-import styles from '../styles/Header.module.less'
+import styles from '../styles/header.module.less'
 
 const { Header: AntDesignHeader } = Layout
 
