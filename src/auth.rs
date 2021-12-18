@@ -73,7 +73,6 @@ where
             warn!("verify token err {:?}", e);
             AuthError::InvalidToken
         })?;
-        warn!("verify token err {:?}", id_info);
         let email = id_info.email.ok_or(AuthError::InvalidToken)?;
         let username = email.replace(id_info.hd.ok_or(AuthError::InvalidToken)?.as_str(), "");
 
