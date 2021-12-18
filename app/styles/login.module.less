@@ -1,0 +1,65 @@
+@import url('https://rsms.me/inter/inter.css');
+
+html,
+body,
+.bg,
+canvas,
+html,
+body > div:first-child,
+#__next,
+#__next > div:first-child {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  background: #171717;
+  font-family: 'Inter var', sans-serif;
+}
+
+.bg {
+  position: absolute;
+  background: radial-gradient(
+    at 50% 100%,
+    #873740 0%,
+    #272730 40%,
+    #171720 80%,
+    #070710 100%
+  );
+}
+
+h1 {
+  position: absolute;
+  top: 120px;
+  left: 80px;
+  font-weight: 900;
+  font-size: 7em;
+  margin: 0;
+  color: peru;
+  line-height: 0.6em;
+  letter-spacing: -2px;
+  text-align: left;
+}
+
+.layer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    0deg,
+    rgba(63, 12, 88, 0.25) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.submit {
+  position: absolute;
+  z-index: 1;
+  top: 122px;
+  right: 80px;
+}

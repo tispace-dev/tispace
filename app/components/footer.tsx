@@ -1,7 +1,7 @@
 import { Layout } from 'antd'
 import Image from 'next/image'
 
-import styles from '../styles/Footer.module.less'
+import styles from '../styles/footer.module.less'
 
 const { Footer: AntDesignFooter } = Layout
 
