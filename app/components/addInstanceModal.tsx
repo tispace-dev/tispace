@@ -11,8 +11,8 @@ const layout = {
   wrapperCol: { span: 18 },
 }
 
-// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
-const subDomainRegex = /^(?![0-9]+$)(?!.*-$)(?!-)[a-zA-Z0-9-]{1,63}$/g
+// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+const instanceNameRegex = /^(?![0-9]+$)(?!.*-$)(?!-)[a-z0-9-]{1,63}$/g
 
 interface AddInstanceModalProps {
   visible: boolean
@@ -77,7 +77,7 @@ function AddInstanceModal({
             rules={[
               {
                 required: true,
-                pattern: subDomainRegex,
+                pattern: instanceNameRegex,
                 message:
                   'Only lowercase letters, numbers, and `-` can be included, please start and end with a lowercase letter or number!',
               },

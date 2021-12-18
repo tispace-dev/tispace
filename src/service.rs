@@ -5,7 +5,9 @@ use axum::{
     routing::{delete, get},
     Json, Router,
 };
+use lazy_static::lazy_static;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use regex::Regex;
 
 use crate::model::InstanceStatus;
 use crate::storage::Storage;
@@ -19,12 +21,25 @@ use crate::{
 };
 
 pub fn protected_routes() -> Router {
+    // Instance name will be used as kubernetes's resource names, such as pod names, label names,
+    // hostnames and so on. So the same naming constraints should be applied to the instance name.
+    // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names.
+    fn verify_instance_name(name: &str) -> bool {
+        if name.is_empty() || name.len() > 63 {
+            return false;
+        }
+        lazy_static! {
+            static ref RE: Regex = Regex::new(r"^[a-z]([-a-z0-9]*[a-z0-9])?$").unwrap();
+        }
+        RE.is_match(name)
+    }
+
     async fn create_instance(
         user: UserClaims,
         Json(req): Json<CreateInstanceRequest>,
         Extension(storage): Extension<Storage>,
     ) -> Result<impl IntoResponse, InstanceError> {
-        if req.name.is_empty() {
+        if verify_instance_name(req.name.as_str()) {
             return Err(InstanceError::InvalidArgs("name".to_string()));
         }
         if req.cpu == 0 {
