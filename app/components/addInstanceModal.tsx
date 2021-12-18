@@ -91,7 +91,7 @@ function AddInstanceModal({
               min={1}
               max={16}
               addonBefore={<BsFillCpuFill />}
-              addonAfter="C"
+              addonAfter="Core"
             />
           </Form.Item>
           <Form.Item
@@ -108,7 +108,7 @@ function AddInstanceModal({
               min={8}
               max={64}
               addonBefore={<FaMemory />}
-              addonAfter="GB"
+              addonAfter="GiB"
             />
           </Form.Item>
           <Form.Item
@@ -122,7 +122,7 @@ function AddInstanceModal({
               min={60}
               max={200}
               addonBefore={<ImFloppyDisk />}
-              addonAfter="GB"
+              addonAfter="GiB"
             />
           </Form.Item>
         </Form>
