@@ -41,7 +41,7 @@ function Model({ url }: ModelUrl) {
 const Login: NextPage = () => {
   const onFinish = async () => {
     await signIn('google', {
-      callbackUrl: 'window.location.origin',
+      callbackUrl: window.location.origin,
     })
   }
 

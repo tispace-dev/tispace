@@ -10,7 +10,7 @@ service.interceptors.request.use(async (config) => {
   const session = await getSession()
 
   if (config.headers) {
-    config.headers.Authorization = `Bearer ${session?.id_token}`
+    config.headers.Authorization = `Bearer ${session?.idToken}`
   }
 
   return config

@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react'
 
 import Layout from '../components/layout'
 import { listInstance } from '../lib/service/instanceService'
+import { RefreshIdTokenError } from './api/auth/[...nextauth]'
 
 const columns = [
   {
@@ -43,11 +44,14 @@ const columns = [
 const Home: NextPage = () => {
   const router = useRouter()
   const { data: session, status } = useSession()
-  const shouldRedirect = !(status === 'loading' || session)
 
   const [instances, setInstances] = useState([])
 
   useEffect(() => {
+    const shouldRedirect =
+      !(status === 'loading' || session) ||
+      (session && session.error === RefreshIdTokenError)
+
     if (shouldRedirect) {
       router.push('/login')
     }
@@ -62,7 +66,7 @@ const Home: NextPage = () => {
         message.error('List instances failed')
       }
     })()
-  }, [shouldRedirect, router])
+  }, [session, status, router])
 
   return (
     <Layout selectedKey={'instances'} breadcrumb={'Instances'}>
