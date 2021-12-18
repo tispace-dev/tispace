@@ -43,16 +43,19 @@ const columns = [
 const Home: NextPage = () => {
   const router = useRouter()
   const { data: session, status } = useSession()
-  const shouldRedirect = !(status === 'loading' || session)
 
   const [instances, setInstances] = useState([])
 
   useEffect(() => {
-    if (shouldRedirect) {
-      router.push('/login')
-    }
-
     ;(async () => {
+      const shouldRedirect =
+        !(status === 'loading' || session) ||
+        (session && session.error === 'RefreshIdTokenError')
+
+      if (shouldRedirect) {
+        await router.push('/login')
+      }
+
       try {
         const instances = await listInstance()
         setInstances(instances.data.instances)
@@ -62,7 +65,7 @@ const Home: NextPage = () => {
         message.error('List instances failed')
       }
     })()
-  }, [shouldRedirect, router])
+  }, [session, status, router])
 
   return (
     <Layout selectedKey={'instances'} breadcrumb={'Instances'}>

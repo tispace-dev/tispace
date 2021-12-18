@@ -45,7 +45,6 @@ pub async fn authorized(
 pub struct UserClaims {
     crate username: String,
     crate email: String,
-    crate name: String,
 }
 
 #[async_trait]
@@ -74,14 +73,9 @@ where
             warn!("verify token err {:?}", e);
             AuthError::InvalidToken
         })?;
-
         let email = id_info.email.ok_or(AuthError::InvalidToken)?;
         let username = email.replace(id_info.hd.ok_or(AuthError::InvalidToken)?.as_str(), "");
 
-        Ok(UserClaims {
-            username,
-            email,
-            name: id_info.name.ok_or(AuthError::InvalidToken)?,
-        })
+        Ok(UserClaims { username, email })
     }
 }
