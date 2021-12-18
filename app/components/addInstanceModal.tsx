@@ -77,10 +77,6 @@ function AddInstanceModal({
             rules={[
               {
                 required: true,
-                message: 'Please input your instance name!',
-              },
-              {
-                required: true,
                 pattern: subDomainRegex,
                 message:
                   'Only lowercase letters, numbers, and `-` can be included, please start and end with a lowercase letter or number!',
