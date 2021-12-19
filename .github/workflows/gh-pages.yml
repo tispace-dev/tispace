@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -17,9 +20,11 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: 14.17.0
-      - name: Build
+      - name: Install
         run: |
           yarn install
+      - name: Build
+        run: |
           yarn deploy
         env:
           NODE_ENV: production
