@@ -5,6 +5,7 @@ import { Button, Popconfirm, message, Table, Tag } from 'antd'
 import { useSession } from 'next-auth/react'
 import { PlusOutlined } from '@ant-design/icons'
 import { ColumnsType } from 'antd/es/table'
+import useInterval from '@use-it/interval'
 
 import Layout from '../components/layout'
 import {
@@ -139,6 +140,10 @@ const Home: NextPage = () => {
       await listAllInstance()
     })()
   }, [session, status, router])
+
+  useInterval(async () => {
+    await listAllInstance()
+  }, 30000)
 
   return (
     <Layout selectedKey={'instances'} breadcrumb={'Instances'}>
