@@ -40,7 +40,10 @@ async fn main() {
             // see https://docs.rs/tower-http/latest/tower_http/cors/index.html
             // for more details
             CorsLayer::new()
-                .allow_origin(Origin::exact("http://localhost:3000".parse().unwrap()))
+                .allow_origin(Origin::list([
+                    "http://localhost:3000".parse().unwrap(),
+                    "https://tispace.herokuapp.com".parse().unwrap(),
+                ]))
                 .allow_methods(any())
                 .allow_headers(any()),
         );

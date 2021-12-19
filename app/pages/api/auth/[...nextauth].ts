@@ -76,7 +76,8 @@ export default NextAuth({
         if (authorized.status !== 200) {
           return false
         }
-      } catch (_) {
+      } catch (e) {
+        console.log(e)
         return false
       }
 
