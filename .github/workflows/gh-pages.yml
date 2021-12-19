@@ -22,6 +22,7 @@ jobs:
           yarn install
           yarn deploy
         env:
+          NODE_ENV: production
           NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
           NEXT_PUBLIC_SERVER_URL: ${{ secrets.NEXT_PUBLIC_SERVER_URL }}
           SECRET: ${{ secrets.SECRET }}
