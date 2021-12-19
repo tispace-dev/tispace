@@ -1,0 +1,21 @@
+{
+  "name": "TiSpace",
+  "description": "TiSpace manages VMs in K8s for developers.",
+  "scripts": {
+  },
+  "env": {
+  },
+  "formation": {
+    "web": {
+      "quantity": 1
+    }
+  },
+  "addons": [
+
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ]
+}
