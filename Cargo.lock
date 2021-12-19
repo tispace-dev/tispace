@@ -1577,7 +1577,6 @@ dependencies = [
  "headers",
  "k8s-openapi",
  "kube",
- "lazy_static",
  "once_cell",
  "rand",
  "regex",

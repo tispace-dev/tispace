@@ -5,7 +5,7 @@ use axum::{
     routing::{delete, get},
     Json, Router,
 };
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use regex::Regex;
 
@@ -20,20 +20,18 @@ use crate::{
     model::{Instance, InstanceStage},
 };
 
-pub fn protected_routes() -> Router {
-    // Instance name will be used as kubernetes's resource names, such as pod names, label names,
-    // hostnames and so on. So the same naming constraints should be applied to the instance name.
-    // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names.
-    fn verify_instance_name(name: &str) -> bool {
-        if name.is_empty() || name.len() > 63 {
-            return false;
-        }
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[a-z]([-a-z0-9]*[a-z0-9])?$").unwrap();
-        }
-        RE.is_match(name)
-    }
+/// Returns true if and only if the name is a valid instance name.
+///
+/// Instance name will be used as kubernetes's resource names, such as pod names, label names,
+/// hostnames and so on. So the same naming constraints should be applied to the instance name.
+/// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names.
+fn verify_instance_name(name: &str) -> bool {
+    static RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$").unwrap());
+    RE.is_match(name)
+}
 
+pub fn protected_routes() -> Router {
     async fn create_instance(
         user: UserClaims,
         Json(req): Json<CreateInstanceRequest>,
@@ -172,4 +170,24 @@ pub fn protected_routes() -> Router {
     Router::new()
         .route("/instances", get(list_instances).post(create_instance))
         .route("/instances/:instance_name", delete(delete_instance))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_verify_instance_name() {
+        assert!(verify_instance_name("dev01"));
+        assert!(verify_instance_name("dev-01"));
+        assert!(!verify_instance_name(""));
+        assert!(!verify_instance_name(
+            std::iter::repeat('a').take(64).collect::<String>().as_str()
+        ));
+        assert!(!verify_instance_name("dev.01"));
+        assert!(!verify_instance_name("dev@01"));
+        assert!(!verify_instance_name("DEV01"));
+        assert!(verify_instance_name("dev-new"));
+        assert!(!verify_instance_name("01dev"));
+    }
 }
