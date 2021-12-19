@@ -24,6 +24,11 @@ jobs:
         run: |
           yarn install
           yarn deploy
+        env:
+          NEXT_PUBLIC_SERVER_URL: ${{ secrets.NEXT_PUBLIC_SERVER_URL }}
+          SECRET: ${{ secrets.SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
