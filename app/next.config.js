@@ -1,4 +1,3 @@
-const debug = process.env.NODE_ENV !== 'production'
 const withAntdLess = require('next-plugin-antd-less')
 
 module.exports = {
@@ -7,5 +6,4 @@ module.exports = {
       return config
     },
   }),
-  assetPrefix: !debug ? '/tispace/' : '',
 }
