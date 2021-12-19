@@ -8,5 +8,5 @@ module.exports = {
     },
   }),
   assetPrefix: !debug ? '/tispace/' : '',
-  basePath: !debug ? '/tispace/' : '',
+  basePath: !debug ? '/tispace' : '',
 }
