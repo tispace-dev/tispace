@@ -17,4 +17,4 @@ jobs:
           components: rustfmt, clippy
       - run: make fmt
       - run: make clippy
-
+      - run: make test

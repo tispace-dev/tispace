@@ -8,6 +8,8 @@ run:
 	cargo run
 fmt:
 	cargo fmt
+test:
+	cargo test
 clean:
 	rm -f state.json
 	cargo clean

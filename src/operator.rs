@@ -25,7 +25,6 @@ const DEFAULT_RUNTIME_CLASS_NAME: &str = "kata";
 const PASSWORD_ENV_KEY: &str = "PASSWORD";
 
 fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Container {
-    let memory_limit_in_mb = (memory_limit + 1024 * 1024 - 1) / 1024 / 1024;
     Container {
         name: pod_name.to_owned(),
         command: Some(vec!["/sbin/init".to_owned()]),
@@ -43,10 +42,7 @@ fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Con
         resources: Some(ResourceRequirements {
             limits: Some(BTreeMap::from([
                 ("cpu".to_owned(), Quantity(cpu_limit.to_string())),
-                (
-                    "memory".to_owned(),
-                    Quantity(format!("{}Mi", memory_limit_in_mb)),
-                ),
+                ("memory".to_owned(), Quantity(format!("{}Gi", memory_limit))),
             ])),
             ..Default::default()
         }),
@@ -79,7 +75,6 @@ fn rootfs_name(pod_name: &str) -> String {
 }
 
 fn build_rootfs_pvc(pod_name: &str, disk_size: usize) -> PersistentVolumeClaim {
-    let disk_size_in_gb = (disk_size + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
     PersistentVolumeClaim {
         metadata: ObjectMeta {
             name: Some(rootfs_name(pod_name)),
@@ -91,7 +86,7 @@ fn build_rootfs_pvc(pod_name: &str, disk_size: usize) -> PersistentVolumeClaim {
             resources: Some(ResourceRequirements {
                 requests: Some(BTreeMap::from([(
                     "storage".to_owned(),
-                    Quantity(format!("{}Gi", disk_size_in_gb)),
+                    Quantity(format!("{}Gi", disk_size)),
                 )])),
                 ..Default::default()
             }),
