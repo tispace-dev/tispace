@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint && prettier \"**/*\" --write --ignore-unknown && stylelint \"**/*.less\""
+    "lint": "next lint && prettier \"**/*\" --write --ignore-unknown && stylelint \"**/*.less\"",
+    "deploy": "rm -rf node_modules/.cache && next build && next export && touch out/.nojekyll"
   },
   "dependencies": {
     "@ant-design/icons": "4.7.0",
