@@ -20,15 +20,16 @@ use crate::{
     model::{Instance, InstanceStage},
 };
 
+static INSTANCE_NAME_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$").unwrap());
+
 /// Returns true if and only if the name is a valid instance name.
 ///
 /// Instance name will be used as kubernetes's resource names, such as pod names, label names,
 /// hostnames and so on. So the same naming constraints should be applied to the instance name.
 /// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names.
 fn verify_instance_name(name: &str) -> bool {
-    static RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$").unwrap());
-    RE.is_match(name)
+    INSTANCE_NAME_REGEX.is_match(name)
 }
 
 pub fn protected_routes() -> Router {
