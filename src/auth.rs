@@ -24,22 +24,6 @@ static CLIENT: Lazy<Client> = Lazy::new(|| {
 
 static CACHEDCERTS: OnceCell<CachedCerts> = OnceCell::const_new();
 
-pub async fn authorized(
-    user: UserClaims,
-    Extension(storage): Extension<Storage>,
-) -> Result<(), AuthError> {
-    let mut found = false;
-    storage
-        .read_only(|state| found = state.users.iter().any(|u| u.username == user.username))
-        .await;
-    if found {
-        Ok(())
-    } else {
-        warn!("unauthorized user {}", user.username);
-        Err(AuthError::UnauthorizedUser)
-    }
-}
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UserClaims {
@@ -60,7 +44,6 @@ where
             TypedHeader::<Authorization<Bearer>>::from_request(req)
                 .await
                 .map_err(|_| AuthError::InvalidToken)?;
-
         let certs = CACHEDCERTS
             .get_or_init(|| async {
                 let mut certs = CachedCerts::new();
@@ -79,6 +62,19 @@ where
             "",
         );
 
-        Ok(UserClaims { username, email })
+        let Extension(storage) = Extension::<Storage>::from_request(req)
+            .await
+            .expect("`Storage` extension is missing");
+
+        let mut found = false;
+        storage
+            .read_only(|state| found = state.users.iter().any(|u| u.username == username))
+            .await;
+        if found {
+            Ok(UserClaims { username, email })
+        } else {
+            warn!("unauthorized user {}", username);
+            Err(AuthError::UnauthorizedUser)
+        }
     }
 }

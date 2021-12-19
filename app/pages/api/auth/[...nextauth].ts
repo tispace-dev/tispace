@@ -63,27 +63,6 @@ export default NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ account }) {
-      try {
-        const authorized = await axios.get(
-          `${process.env.NEXT_PUBLIC_SERVER_URL}/authorized`,
-          {
-            headers: {
-              Authorization: `Bearer ${account.id_token}`,
-            },
-          }
-        )
-        if (authorized.status !== 200) {
-          return false
-        }
-      } catch (e) {
-        console.log(e)
-        return false
-      }
-
-      return true
-    },
-
     jwt: async function ({ token, account }) {
       if (account) {
         token.idToken = account.id_token
