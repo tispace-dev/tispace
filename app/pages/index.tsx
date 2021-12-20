@@ -129,15 +129,16 @@ const Home: NextPage = () => {
 
   useEffect(() => {
     ;(async () => {
+      if (status === 'loading') {
+        return
+      }
       const shouldRedirect =
-        !(status === 'loading' || session) ||
-        (session && session.error === 'RefreshIdTokenError')
-
+        !session || (session && session.error === 'RefreshIdTokenError')
       if (shouldRedirect) {
         await router.push('/login')
+      } else {
+        await listAllInstance()
       }
-
-      await listAllInstance()
     })()
   }, [session, status, router])
 
