@@ -3,7 +3,7 @@ import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
 import { Button, Popconfirm, message, Table, Tag } from 'antd'
 import { useSession } from 'next-auth/react'
-import { PlusOutlined } from '@ant-design/icons'
+import { PlusOutlined, StopOutlined } from '@ant-design/icons'
 import { ColumnsType } from 'antd/es/table'
 import useInterval from '@use-it/interval'
 
@@ -22,6 +22,15 @@ type Instance = {
   cpu: number
   memory: number
   disk_size: number
+  status: string
+}
+
+enum InstanceStatus {
+  Starting = 'Starting',
+  Running = 'Running',
+  Stopping = 'Stopping',
+  Stopped = 'Stopped',
+  Deleting = 'Deleting',
 }
 
 const Home: NextPage = () => {
@@ -74,6 +83,26 @@ const Home: NextPage = () => {
     })()
   }
 
+  const getStatusTag = (status: string) => {
+    switch (status) {
+      case InstanceStatus.Starting: {
+        return <Tag color="lime">{status}</Tag>
+      }
+      case InstanceStatus.Running: {
+        return <Tag color="green">{status}</Tag>
+      }
+      case InstanceStatus.Stopping: {
+        return <Tag color="orange">{status}</Tag>
+      }
+      case InstanceStatus.Stopped: {
+        return <Tag color="gold">{status}</Tag>
+      }
+      case InstanceStatus.Deleting: {
+        return <Tag color="red">{status}</Tag>
+      }
+    }
+  }
+
   const columns: ColumnsType<Instance> = [
     {
       title: 'Name',
@@ -87,13 +116,13 @@ const Home: NextPage = () => {
       sorter: (a, b) => a.cpu - b.cpu,
     },
     {
-      title: 'Memory',
+      title: 'Memory(GiB)',
       dataIndex: 'memory',
       key: 'memory',
       sorter: (a, b) => a.memory - b.memory,
     },
     {
-      title: 'Disk Size',
+      title: 'Disk Size(GiB)',
       dataIndex: 'disk_size',
       key: 'disk_size',
       sorter: (a, b) => a.disk_size - b.disk_size,
@@ -107,23 +136,26 @@ const Home: NextPage = () => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => <Tag>{status}</Tag>,
+      render: (status) => getStatusTag(status),
     },
     {
       title: 'Operation',
       dataIndex: 'operation',
-      render: (_, record: Instance) => (
-        <Popconfirm
-          title="Are you sure to delete this instance?"
-          onConfirm={() => {
-            handleDelete(record.name)
-          }}
-          okText="Yes"
-          cancelText="No"
-        >
-          <a href="#">Delete</a>
-        </Popconfirm>
-      ),
+      render: (_, record: Instance) =>
+        record.status === InstanceStatus.Running ? (
+          <Popconfirm
+            title="Are you sure to delete this instance?"
+            onConfirm={() => {
+              handleDelete(record.name)
+            }}
+            okText="Yes"
+            cancelText="No"
+          >
+            <a href="#">Delete</a>
+          </Popconfirm>
+        ) : (
+          <StopOutlined />
+        ),
     },
   ]
 
@@ -163,7 +195,7 @@ const Home: NextPage = () => {
         onCreate={handleCreate}
         onCancel={handleCancel}
       />
-      <Table dataSource={instances} columns={columns} rowKey="name" />
+      <Table dataSource={instances} columns={columns} rowKey="name" bordered />
     </Layout>
   )
 }

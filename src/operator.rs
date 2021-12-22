@@ -191,7 +191,7 @@ impl Operator {
                                         username = user.username.as_str(),
                                         instance = instance.name.as_str(),
                                         error = e.to_string().as_str(),
-                                        "stoping instance encountered error"
+                                        "stopping instance encountered error"
                                     );
                                 }
                             }
