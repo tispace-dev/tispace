@@ -27,7 +27,7 @@ impl From<&crate::model::Instance> for Instance {
             name: m.name.clone(),
             cpu: m.cpu,
             memory: m.memory,
-            disk_size: 0,
+            disk_size: m.disk_size,
             hostname: m.hostname.clone(),
             password: m.password.clone(),
             status: m.status.to_string(),

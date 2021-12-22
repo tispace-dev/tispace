@@ -38,7 +38,7 @@ pub fn protected_routes() -> Router {
         Json(req): Json<CreateInstanceRequest>,
         Extension(storage): Extension<Storage>,
     ) -> Result<impl IntoResponse, InstanceError> {
-        if verify_instance_name(req.name.as_str()) {
+        if !verify_instance_name(req.name.as_str()) {
             return Err(InstanceError::InvalidArgs("name".to_string()));
         }
         if req.cpu == 0 {
