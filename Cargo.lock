@@ -80,9 +80,9 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "axum"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae08f7a0b974a1b226b9a4bb07fcc865f25d7c7513cefc53603f84ab41e586fd"
+checksum = "8757fdd8f5b3ef2838f0e83fff84c4b89c12c93ff95b8448686d10a82ac86a53"
 dependencies = [
  "async-trait",
  "axum-core",
@@ -94,6 +94,7 @@ dependencies = [
  "http-body",
  "hyper",
  "matchit",
+ "memchr",
  "mime",
  "percent-encoding",
  "pin-project-lite",
