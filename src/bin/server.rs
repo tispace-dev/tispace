@@ -40,7 +40,7 @@ async fn main() {
             CorsLayer::new()
                 .allow_origin(Origin::list([
                     "http://localhost:3000".parse().unwrap(),
-                    "https://tispace.herokuapp.com".parse().unwrap(),
+                    "http://tispace.herokuapp.com".parse().unwrap(),
                 ]))
                 .allow_methods(any())
                 .allow_headers(any()),
