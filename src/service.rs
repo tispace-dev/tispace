@@ -86,10 +86,8 @@ pub fn protected_routes() -> Router {
                             memory: req.memory,
                             disk_size: req.disk_size,
                             stage: InstanceStage::Running,
-                            hostname: format!(
-                                "{}.{}.tispace.svc.cluster.local",
-                                req.name, u.username
-                            ),
+                            hostname: format!("{}.{}.tispace", req.name, u.username),
+                            ssh_address: "".to_owned(),
                             password: thread_rng()
                                 .sample_iter(&Alphanumeric)
                                 .take(16)

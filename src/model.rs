@@ -50,6 +50,7 @@ crate struct Instance {
     crate memory: usize,
     crate disk_size: usize,
     crate hostname: String,
+    crate ssh_address: String,
     crate password: String,
     crate stage: InstanceStage,
     crate status: InstanceStatus,
