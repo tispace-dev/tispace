@@ -524,6 +524,15 @@ impl Operator {
                         return Err(anyhow!(e));
                     }
                 }
+                match services.get(&pod_name).await {
+                    Ok(_) => {
+                        deleted = false;
+                    }
+                    Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
+                    Err(e) => {
+                        return Err(anyhow!(e));
+                    }
+                }
             }
         }
         // Status is unchanged, skip writing storage.

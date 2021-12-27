@@ -133,6 +133,11 @@ const Home: NextPage = () => {
       key: 'hostname',
     },
     {
+      title: 'SSH Address',
+      dataIndex: 'ssh_address',
+      key: 'ssh_address',
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
