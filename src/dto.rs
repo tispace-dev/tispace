@@ -17,7 +17,8 @@ crate struct Instance {
     crate memory: usize,
     crate disk_size: usize,
     crate hostname: String,
-    crate ssh_address: String,
+    crate ssh_host: Option<String>,
+    crate ssh_port: Option<i32>,
     crate password: String,
     crate status: String,
 }
@@ -30,7 +31,8 @@ impl From<&crate::model::Instance> for Instance {
             memory: m.memory,
             disk_size: m.disk_size,
             hostname: m.hostname.clone(),
-            ssh_address: m.ssh_address.clone(),
+            ssh_host: m.ssh_host.clone(),
+            ssh_port: m.ssh_port,
             password: m.password.clone(),
             status: m.status.to_string(),
         }

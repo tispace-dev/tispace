@@ -431,7 +431,8 @@ impl Operator {
         let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
         let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
         let mut new_status = instance.status.clone();
-        let mut ssh_address = instance.ssh_address.clone();
+        let mut new_ssh_host = None;
+        let mut new_ssh_port = None;
         let mut deleted = false;
         match instance.stage {
             InstanceStage::Stopped => match pods.get(&pod_name).await {
@@ -468,24 +469,20 @@ impl Operator {
                                 _ => {}
                             }
                         }
-                        let host_ip = pod
-                            .status
-                            .as_ref()
-                            .map(|s| s.host_ip.clone().unwrap_or_default())
-                            .unwrap_or_default();
-                        if !host_ip.is_empty() {
-                            match services.get(&pod_name).await {
-                                Ok(svc) => {
-                                    if let Some(port) = get_ssh_port(&svc) {
-                                        ssh_address = format!("{}:{}", host_ip, port);
-                                    }
-                                }
-                                Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
-                                Err(e) => {
-                                    return Err(anyhow!(e));
-                                }
-                            };
+                        if let Some(host) = pod.status.as_ref().and_then(|s| s.host_ip.clone()) {
+                            new_ssh_host = Some(host);
                         }
+                        match services.get(&pod_name).await {
+                            Ok(svc) => {
+                                if let Some(port) = get_ssh_port(&svc) {
+                                    new_ssh_port = Some(port);
+                                }
+                            }
+                            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
+                            Err(e) => {
+                                return Err(anyhow!(e));
+                            }
+                        };
                     }
                     Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
                         match instance.status {
@@ -537,7 +534,11 @@ impl Operator {
             }
         }
         // Status is unchanged, skip writing storage.
-        if !deleted && new_status == instance.status && ssh_address == instance.ssh_address {
+        if !deleted
+            && new_status == instance.status
+            && new_ssh_host == instance.ssh_host
+            && new_ssh_port == instance.ssh_port
+        {
             return Ok(());
         }
         self.storage
@@ -550,7 +551,8 @@ impl Operator {
                             if deleted {
                                 u.instances.remove(i);
                             } else {
-                                u.instances[i].ssh_address = ssh_address.clone();
+                                u.instances[i].ssh_host = new_ssh_host.clone();
+                                u.instances[i].ssh_port = new_ssh_port;
                                 u.instances[i].status = new_status.clone();
                             }
                             return true;

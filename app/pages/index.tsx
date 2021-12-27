@@ -133,9 +133,14 @@ const Home: NextPage = () => {
       key: 'hostname',
     },
     {
-      title: 'SSH Address',
-      dataIndex: 'ssh_address',
-      key: 'ssh_address',
+      title: 'SSH Host',
+      dataIndex: 'ssh_host',
+      key: 'ssh_host',
+    },
+    {
+      title: 'SSH Port',
+      dataIndex: 'ssh_port',
+      key: 'ssh_port',
     },
     {
       title: 'Status',
