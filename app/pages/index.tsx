@@ -141,7 +141,7 @@ const Home: NextPage = () => {
       dataIndex: 'ssh_host',
       key: 'ssh_host',
       render: (_, record: Instance) => {
-        if (!record.ssh_port || !record.ssh_port) {
+        if (!record.ssh_host || !record.ssh_port) {
           return <Spin />
         }
         const sshCommand = `ssh root@${record.ssh_host} -p ${record.ssh_port}`
