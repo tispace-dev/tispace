@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
-import { Button, Popconfirm, message, Table, Tag } from 'antd'
+import { Button, Popconfirm, message, Table, Tag, Spin, Input } from 'antd'
 import { useSession } from 'next-auth/react'
-import { PlusOutlined, StopOutlined } from '@ant-design/icons'
+import { PlusOutlined, StopOutlined, CopyOutlined } from '@ant-design/icons'
 import { ColumnsType } from 'antd/es/table'
 import useInterval from '@use-it/interval'
+import { CopyToClipboard } from 'react-copy-to-clipboard'
 
 import Layout from '../components/layout'
 import {
@@ -23,6 +24,9 @@ type Instance = {
   memory: number
   disk_size: number
   status: string
+  ssh_host: string
+  ssh_port: number
+  password: string
 }
 
 enum InstanceStatus {
@@ -133,14 +137,49 @@ const Home: NextPage = () => {
       key: 'hostname',
     },
     {
-      title: 'SSH Host',
+      title: 'SSH Command',
       dataIndex: 'ssh_host',
       key: 'ssh_host',
+      render: (_, record: Instance) => {
+        if (!record.ssh_port || !record.ssh_port) {
+          return <Spin />
+        }
+        const sshCommand = `ssh root@${record.ssh_host} -p ${record.ssh_port}`
+        return (
+          <div className={styles.ssh}>
+            <span className={styles.command}>{sshCommand}</span>
+            <CopyToClipboard
+              text={sshCommand}
+              onCopy={() => message.success('Command copied!')}
+            >
+              <Button type="dashed" shape="circle" icon={<CopyOutlined />} />
+            </CopyToClipboard>
+          </div>
+        )
+      },
     },
     {
-      title: 'SSH Port',
-      dataIndex: 'ssh_port',
-      key: 'ssh_port',
+      title: 'SSH Initialization Password',
+      dataIndex: 'password',
+      key: 'password',
+      render: (password) => {
+        return (
+          <>
+            <Input.Password
+              className={styles.password}
+              bordered={false}
+              value={password}
+              visibilityToggle={false}
+            />
+            <CopyToClipboard
+              text={password}
+              onCopy={() => message.success('Password copied!')}
+            >
+              <Button type="dashed" shape="circle" icon={<CopyOutlined />} />
+            </CopyToClipboard>
+          </>
+        )
+      },
     },
     {
       title: 'Status',
