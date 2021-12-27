@@ -140,6 +140,7 @@ fn build_pod_service(pod_name: &str) -> Service {
             )])),
             ports: Some(vec![ServicePort {
                 name: Some("ssh".to_owned()),
+                port: 22,
                 target_port: Some(IntOrString::Int(22)),
                 ..Default::default()
             }]),
