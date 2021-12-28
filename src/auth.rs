@@ -57,10 +57,13 @@ where
             AuthError::InvalidToken
         })?;
         let email = id_info.email.ok_or(AuthError::InvalidToken)?;
-        let username = email.replace(
-            format!("@{}", id_info.hd.ok_or(AuthError::InvalidToken)?).as_str(),
-            "",
-        );
+        let username = email
+            .replace(
+                format!("@{}", id_info.hd.ok_or(AuthError::InvalidToken)?).as_str(),
+                "",
+            )
+            // Ignore the `. `
+            .replace('.', "");
 
         let Extension(storage) = Extension::<Storage>::from_request(req)
             .await
