@@ -6,9 +6,9 @@ import { parse } from 'url'
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev })
 const handle = app.getRequestHandler()
+const port = process.env.PORT || 3000
 
 app.prepare().then(() => {
-  const port = dev ? 3000 : 80
   createServer((req, res) => {
     const { url } = req
     const { protocol, host } = absoluteUrl(req)
