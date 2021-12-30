@@ -1,10 +1,19 @@
-FROM jrei/systemd-ubuntu:20.04
+FROM ubuntu:20.04
 
-RUN apt -y update && apt -y upgrade \
-    && apt -y install ssh sudo vim curl wget iproute2 iputils-ping \
-    && apt clean && rm -f /etc/machine-id /var/lib/dbus/machine-id \
+RUN apt -y update \
+    && DEBIAN_FRONTEND=noninteractive apt -y install ssh sudo vim curl wget git man rsync \
+        screen tmux netcat locales man build-essential cmake iproute2 iputils-ping \
+    && apt -y dist-upgrade \
+    && apt -y autoremove --purge \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /etc/machine-id /var/lib/dbus/machine-id \
     && sed -i "s/^#PermitRootLogin.*$/PermitRootLogin yes/g" /etc/ssh/sshd_config \
-    && sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+    && sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list \
+    && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && sed -i -e "s/# en_US.UTF-8/en_US.UTF-8/g" /etc/locale.gen \
+    && locale-gen \
+    && echo "LANG=en_US.UTF-8" >> /etc/default/locale \
+    && echo "LC_ALL=en_US.UTF-8" >> /etc/default/locale
 
 COPY ./scripts/init-rootfs.sh /
 
