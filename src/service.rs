@@ -22,6 +22,13 @@ use crate::{
 
 static INSTANCE_NAME_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$").unwrap());
+static DEFAULT_ROOTFS_IMAGE: Lazy<String> = Lazy::new(|| {
+    std::env::var("DEFAULT_ROOTFS_IMAGE").unwrap_or_else(|_| "tispace/centos7".to_owned())
+});
+static DEFAULT_ROOTFS_IMAGE_TAG: Lazy<String> =
+    Lazy::new(|| std::env::var("DEFAULT_ROOTFS_IMAGE_TAG").unwrap_or_else(|_| "latest".to_owned()));
+static VERIFIED_ROOTFS_IMAGES: Lazy<Vec<&str>> =
+    Lazy::new(|| vec!["tispace/centos7", "tispace/centos8", "tispace/ubuntu2004"]);
 
 /// Returns true if and only if the name is a valid instance name.
 ///
@@ -30,6 +37,21 @@ static INSTANCE_NAME_REGEX: Lazy<Regex> =
 /// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names.
 fn verify_instance_name(name: &str) -> bool {
     INSTANCE_NAME_REGEX.is_match(name)
+}
+
+/// Returns true if the image is verifed.
+///
+/// Currently we only support images which is in the list of verified images.
+fn is_verified_rootfs_image(image: &str) -> bool {
+    VERIFIED_ROOTFS_IMAGES.iter().any(|&s| s == image)
+}
+
+fn append_image_tag_if_missing(mut image: String) -> String {
+    if !image.contains(':') {
+        image.push(':');
+        image.push_str(DEFAULT_ROOTFS_IMAGE_TAG.as_str());
+    }
+    image
 }
 
 pub fn protected_routes() -> Router {
@@ -49,6 +71,11 @@ pub fn protected_routes() -> Router {
         }
         if req.disk_size == 0 {
             return Err(InstanceError::InvalidArgs("disk_size".to_string()));
+        }
+        if let Some(image) = &req.image {
+            if !is_verified_rootfs_image(image) {
+                return Err(InstanceError::ImageUnverified);
+            }
         }
         let mut already_exists = false;
         let mut quota_exceeded = false;
@@ -80,8 +107,14 @@ pub fn protected_routes() -> Router {
                             return false;
                         }
 
+                        let image = req
+                            .image
+                            .clone()
+                            .unwrap_or_else(|| DEFAULT_ROOTFS_IMAGE.to_owned());
+
                         u.instances.push(Instance {
                             name: req.name.clone(),
+                            image: append_image_tag_if_missing(image),
                             cpu: req.cpu,
                             memory: req.memory,
                             disk_size: req.disk_size,
@@ -189,5 +222,26 @@ mod tests {
         assert!(!verify_instance_name("DEV01"));
         assert!(verify_instance_name("dev-new"));
         assert!(!verify_instance_name("01dev"));
+    }
+
+    #[test]
+    fn test_is_verified_rootfs_image() {
+        assert!(is_verified_rootfs_image("tispace/ubuntu2004"));
+        assert!(is_verified_rootfs_image("tispace/centos7"));
+        assert!(is_verified_rootfs_image("tispace/centos8"));
+        assert!(!is_verified_rootfs_image("jrei/systemd-ubuntu"));
+        assert!(!is_verified_rootfs_image("jrei/systemd-centos"));
+    }
+
+    #[test]
+    fn test_append_image_tag_if_missing() {
+        assert_eq!(
+            append_image_tag_if_missing("tispace/ubuntu2004".to_owned()),
+            "tispace/ubuntu2004:latest".to_owned()
+        );
+        assert_eq!(
+            append_image_tag_if_missing("tispace/ubuntu2004:1.2.0".to_owned()),
+            "tispace/ubuntu2004:1.2.0".to_owned()
+        );
     }
 }

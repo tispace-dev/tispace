@@ -20,7 +20,6 @@ use crate::storage::Storage;
 
 const NAMESPACE: &str = "tispace";
 const FAKE_IMAGE: &str = "k8s.gcr.io/pause:3.5";
-const DEFAULT_BASE_IMAGE: &str = "tispace/ubuntu2004:latest";
 const RBD_STORAGE_CLASS_NAME: &str = "rook-ceph-block";
 const DEFAULT_RUNTIME_CLASS_NAME: &str = "kata";
 const PASSWORD_ENV_KEY: &str = "PASSWORD";
@@ -51,11 +50,11 @@ fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Con
     }
 }
 
-fn build_init_container(pod_name: &str, password: &str) -> Container {
+fn build_init_container(pod_name: &str, password: &str, image: &str) -> Container {
     Container {
         name: format!("{}-init", pod_name),
         command: Some(vec!["/init-rootfs.sh".to_owned()]),
-        image: Some(DEFAULT_BASE_IMAGE.to_owned()),
+        image: Some(image.to_owned()),
         image_pull_policy: Some("IfNotPresent".to_owned()),
         volume_mounts: Some(vec![VolumeMount {
             name: "rootfs".to_owned(),
@@ -158,6 +157,7 @@ fn build_pod(
     hostname: &str,
     subdomain: &str,
     password: &str,
+    image: &str,
 ) -> Pod {
     Pod {
         metadata: ObjectMeta {
@@ -174,7 +174,7 @@ fn build_pod(
             subdomain: Some(subdomain.to_owned()),
             automount_service_account_token: Some(false),
             containers: vec![build_container(pod_name, cpu_limit, memory_limit)],
-            init_containers: Some(vec![build_init_container(pod_name, password)]),
+            init_containers: Some(vec![build_init_container(pod_name, password, image)]),
             volumes: Some(vec![build_rootfs_volume(pod_name)]),
             restart_policy: Some("Always".to_owned()),
             dns_config: Some(PodDNSConfig {
@@ -405,6 +405,7 @@ impl Operator {
                     &hostname,
                     &subdomain,
                     &instance.password,
+                    &instance.image,
                 );
                 pods.create(&PostParams::default(), &pod).await?;
             }

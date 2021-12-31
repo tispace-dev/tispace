@@ -49,6 +49,7 @@ crate struct Instance {
     crate cpu: usize,
     crate memory: usize,
     crate disk_size: usize,
+    crate image: String,
     crate hostname: String,
     crate ssh_host: Option<String>,
     crate ssh_port: Option<i32>,
