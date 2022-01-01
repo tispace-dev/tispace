@@ -7,6 +7,7 @@ crate struct CreateInstanceRequest {
     crate cpu: usize,
     crate memory: usize,
     crate disk_size: usize,
+    crate image: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

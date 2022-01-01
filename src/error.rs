@@ -44,6 +44,8 @@ crate enum InstanceError {
     CreateFailed,
     #[error("Delete instance failed")]
     DeleteFailed,
+    #[error("Image is unverified")]
+    ImageUnverified,
 }
 
 impl IntoResponse for InstanceError {
@@ -54,6 +56,7 @@ impl IntoResponse for InstanceError {
             InstanceError::QuotaExceeded => (StatusCode::UNPROCESSABLE_ENTITY, self.to_string()),
             InstanceError::CreateFailed => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             InstanceError::DeleteFailed => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            InstanceError::ImageUnverified => (StatusCode::BAD_REQUEST, self.to_string()),
         };
         let body = Json(json!({
             "error": error_message,
