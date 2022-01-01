@@ -1,10 +1,16 @@
 import React, { useEffect, useRef } from 'react'
-import { Form, Input, InputNumber, Modal, FormInstance } from 'antd'
+import { Form, Input, InputNumber, Modal, FormInstance, Select } from 'antd'
 import { FaMemory } from 'react-icons/fa'
 import { ImFloppyDisk } from 'react-icons/im'
 import { BsFillCpuFill } from 'react-icons/bs'
 
 import { InstanceRequest } from '../lib/service/instanceService'
+
+enum Images {
+  Centos7 = 'tispace/centos7',
+  Centos8 = 'tispace/centos8',
+  Ubuntu2004 = 'tispace/ubuntu2004',
+}
 
 const layout = {
   labelCol: { span: 4 },
@@ -69,7 +75,12 @@ function AddInstanceModal({
           {...layout}
           form={form}
           name="add-instance"
-          initialValues={{ cpu: 8, memory: 16, disk_size: 80 }}
+          initialValues={{
+            cpu: 8,
+            memory: 16,
+            disk_size: 80,
+            image: Images.Centos7,
+          }}
         >
           <Form.Item
             name="name"
@@ -84,6 +95,24 @@ function AddInstanceModal({
             ]}
           >
             <Input />
+          </Form.Item>
+          <Form.Item
+            name="image"
+            label="Image"
+            rules={[
+              {
+                required: true,
+                message: 'Please select an image!',
+              },
+            ]}
+          >
+            <Select>
+              <Select.Option value={Images.Centos7}>centos7</Select.Option>
+              <Select.Option value={Images.Centos8}>centos8</Select.Option>
+              <Select.Option value={Images.Ubuntu2004}>
+                ubuntu2004
+              </Select.Option>
+            </Select>
           </Form.Item>
           <Form.Item
             name="cpu"
