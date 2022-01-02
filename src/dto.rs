@@ -22,6 +22,7 @@ crate struct Instance {
     crate ssh_port: Option<i32>,
     crate password: String,
     crate status: String,
+    crate image: String,
 }
 
 impl From<&crate::model::Instance> for Instance {
@@ -36,6 +37,7 @@ impl From<&crate::model::Instance> for Instance {
             ssh_port: m.ssh_port,
             password: m.password.clone(),
             status: m.status.to_string(),
+            image: m.image.clone().replace(":latest", ""),
         }
     }
 }

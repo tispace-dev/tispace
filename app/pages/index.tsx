@@ -27,6 +27,7 @@ type Instance = {
   ssh_host: string
   ssh_port: number
   password: string
+  image: string
 }
 
 enum InstanceStatus {
@@ -130,6 +131,18 @@ const Home: NextPage = () => {
       dataIndex: 'disk_size',
       key: 'disk_size',
       sorter: (a, b) => a.disk_size - b.disk_size,
+    },
+    {
+      title: 'Image',
+      dataIndex: 'image',
+      key: 'image',
+      render: (image) => {
+        return (
+          <a href={`https://hub.docker.com/r/${image}`}>
+            <Tag color="blue">{image}</Tag>
+          </a>
+        )
+      },
     },
     {
       title: 'Hostname',
