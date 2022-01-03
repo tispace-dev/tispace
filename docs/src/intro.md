@@ -26,7 +26,7 @@ The whole system uses [K8s] as the infrastructure, and deploys [ceph] clusters i
 
 ### K8s
 
-We have deployed [K8s] clusters on bare metal machine and will rely on [K8s] to provide the scheduling capabilities for the entire system. With this, users only need to provide resource requests when creating instances, and we can use [K8s] scheduling capabilities to create the corresponding Pod resources for users.
+We have deployed [K8s] clusters on bare machine and will rely on [K8s] to provide the scheduling capabilities for the entire system. With this, users only need to provide resource requests when creating instances, and we can use [K8s] scheduling capabilities to create the corresponding Pod resources for users.
 
 ### ceph
 
