@@ -1,0 +1,28 @@
+name: Surge PR Preview
+
+on: pull_request_target
+
+defaults:
+  run:
+    working-directory: ./docs
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+      - uses: peaceiris/actions-mdbook@v1
+        with:
+          mdbook-version: "latest"
+      - run: mdbook build
+      - uses: afc163/surge-preview@v1
+        id: preview_step
+        with:
+          surge_token: ${{ secrets.SURGE_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          build: |
+            echo donothing
+          dist: ./book
+
