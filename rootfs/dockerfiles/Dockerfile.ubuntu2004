@@ -2,7 +2,7 @@ FROM ubuntu:20.04
 
 RUN apt -y update \
     && DEBIAN_FRONTEND=noninteractive apt -y install systemd ssh sudo vim curl wget git man \
-        rsync screen tmux netcat locales man build-essential python3 cmake iproute2 iputils-ping \
+    rsync screen tmux netcat locales build-essential python3 cmake iproute2 iputils-ping \
     && apt -y dist-upgrade \
     && apt -y autoremove --purge \
     && rm -rf /var/lib/apt/lists/* \
