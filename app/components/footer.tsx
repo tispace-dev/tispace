@@ -9,7 +9,7 @@ const { Footer: AntDesignFooter } = Layout
 function Footer() {
   return (
     <AntDesignFooter className={styles.footer}>
-      <RocketOutlined /> TiSpace ©2021
+      <RocketOutlined /> TiSpace ©2022
     </AntDesignFooter>
   )
 }
