@@ -17,7 +17,7 @@
     "cross-env": "^7.0.3",
     "next": "12.0.7",
     "next-absolute-url": "^1.2.2",
-    "next-auth": "4.0.6",
+    "next-auth": "4.1.0",
     "next-plugin-antd-less": "^1.7.0",
     "react": "17.0.2",
     "react-copy-to-clipboard": "^5.0.4",
