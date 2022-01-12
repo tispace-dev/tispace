@@ -25,6 +25,14 @@ crate struct Instance {
     crate image: String,
 }
 
+fn strip_image_tag(image: String) -> String {
+    if let Some(i) = image.rfind(':') {
+        image[..i].to_string()
+    } else {
+        image
+    }
+}
+
 impl From<&crate::model::Instance> for Instance {
     fn from(m: &crate::model::Instance) -> Self {
         Instance {
@@ -37,7 +45,7 @@ impl From<&crate::model::Instance> for Instance {
             ssh_port: m.ssh_port,
             password: m.password.clone(),
             status: m.status.to_string(),
-            image: m.image.clone().replace(":latest", ""),
+            image: strip_image_tag(m.image.clone()),
         }
     }
 }
@@ -46,4 +54,25 @@ impl From<&crate::model::Instance> for Instance {
 #[serde(default)]
 crate struct ListInstancesResponse {
     crate instances: Vec<Instance>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_image_tag() {
+        assert_eq!(
+            strip_image_tag("tispace/ubuntu2004".to_owned()),
+            "tispace/ubuntu2004".to_owned()
+        );
+        assert_eq!(
+            strip_image_tag("tispace/ubuntu2004:latest".to_owned()),
+            "tispace/ubuntu2004".to_owned()
+        );
+        assert_eq!(
+            strip_image_tag("tispace/ubuntu2004:1.2.0".to_owned()),
+            "tispace/ubuntu2004".to_owned()
+        );
+    }
 }
