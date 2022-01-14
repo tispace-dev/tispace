@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  namespace: tispace
+  labels:
+    app: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      serviceAccountName: server
+      containers:
+      - name: server
+        image: tispace/server:v20220112-8de4d1e
+        imagePullPolicy: IfNotPresent
+        workingDir: /workdir
+        ports:
+        - containerPort: 8080
+        env:
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: google-client-id
+              key: google-client-id
+        - name: DEFAULT_ROOTFS_IMAGE_TAG
+          value: v20211231-663c309
+        volumeMounts:
+        - name: workdir
+          mountPath: /workdir
+      volumes:
+      - name: workdir
+        persistentVolumeClaim:
+          claimName: server
+      - name: google-client-id
+        secret:
+          secretName: google-client-id
