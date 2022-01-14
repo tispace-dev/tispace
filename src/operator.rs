@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use either::Either;
 use k8s_openapi::api::core::v1::{
-    Container, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec,
+    ConfigMapVolumeSource, Container, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec,
     PersistentVolumeClaimVolumeSource, Pod, PodDNSConfig, PodSpec, ResourceRequirements,
     SecurityContext, Service, ServicePort, ServiceSpec, Volume, VolumeMount,
 };
@@ -53,14 +53,22 @@ fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Con
 fn build_init_container(pod_name: &str, password: &str, image: &str) -> Container {
     Container {
         name: format!("{}-init", pod_name),
-        command: Some(vec!["/init-rootfs.sh".to_owned()]),
+        command: Some(vec!["/tmp/init-rootfs.sh".to_owned()]),
         image: Some(image.to_owned()),
         image_pull_policy: Some("IfNotPresent".to_owned()),
-        volume_mounts: Some(vec![VolumeMount {
-            name: "rootfs".to_owned(),
-            mount_path: "/tmp/rootfs".to_owned(),
-            ..Default::default()
-        }]),
+        volume_mounts: Some(vec![
+            VolumeMount {
+                name: "rootfs".to_owned(),
+                mount_path: "/tmp/rootfs".to_owned(),
+                ..Default::default()
+            },
+            VolumeMount {
+                name: "init-rootfs".to_owned(),
+                mount_path: "/tmp/init-rootfs.sh".to_owned(),
+                sub_path: Some("init-rootfs.sh".to_owned()),
+                ..Default::default()
+            },
+        ]),
         env: Some(vec![EnvVar {
             name: PASSWORD_ENV_KEY.to_owned(),
             value: Some(password.to_owned()),
@@ -103,6 +111,18 @@ fn build_rootfs_volume(pod_name: &str) -> Volume {
         persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
             claim_name: rootfs_name(pod_name),
             read_only: Some(false),
+        }),
+        ..Default::default()
+    }
+}
+
+fn build_init_rootfs_volume() -> Volume {
+    Volume {
+        name: "init-rootfs".to_owned(),
+        config_map: Some(ConfigMapVolumeSource {
+            default_mode: Some(0o755),
+            name: Some("init-rootfs".to_owned()),
+            ..Default::default()
         }),
         ..Default::default()
     }
@@ -175,7 +195,10 @@ fn build_pod(
             automount_service_account_token: Some(false),
             containers: vec![build_container(pod_name, cpu_limit, memory_limit)],
             init_containers: Some(vec![build_init_container(pod_name, password, image)]),
-            volumes: Some(vec![build_rootfs_volume(pod_name)]),
+            volumes: Some(vec![
+                build_rootfs_volume(pod_name),
+                build_init_rootfs_volume(),
+            ]),
             restart_policy: Some("Always".to_owned()),
             dns_config: Some(PodDNSConfig {
                 searches: Some(vec![format!("{}.tispace.svc.cluster.local", subdomain)]),

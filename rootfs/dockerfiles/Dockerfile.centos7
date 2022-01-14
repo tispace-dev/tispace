@@ -7,8 +7,6 @@ RUN yum -y install systemd openssh-server openssh-clients openssl sudo vim wget 
     && sed -i "s/^#PermitRootLogin.*$/PermitRootLogin yes/g" /etc/ssh/sshd_config \
     && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
-COPY ./scripts/init-rootfs.sh /
-
 WORKDIR /
 EXPOSE 22
 CMD ["/sbin/init"]
