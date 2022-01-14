@@ -1,0 +1,45 @@
+# Namespace where the tispace server and instances are created.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tispace
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: server
+  namespace: tispace
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: server
+  namespace: tispace
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - "pods"
+      - "services"
+      - "persistentvolumeclaims"
+    verbs:
+      - "get"
+      - "watch"
+      - "list"
+      - "create"
+      - "delete"
+      - "update"
+      - "patch"
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: server
+  namespace: tispace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: server
+subjects:
+  - kind: ServiceAccount
+    name: server
+    namespace: tispace
