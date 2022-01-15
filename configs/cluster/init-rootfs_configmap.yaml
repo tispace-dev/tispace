@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-rootfs
+  namespace: tispace
+data:
+  init-rootfs.sh: |
+    #!/usr/bin/env bash
+
+    set -eux
+
+    # If rootfs-initing exists, it means the rootfs was incomplete.
+    # We need to clean the rootfs and try to initialize it again.
+    if [ -f /tmp/rootfs/rootfs-initing ]; then
+      find /tmp/rootfs -mindepth 1 -not -path /tmp/rootfs/rootfs-initing -delete
+      rm -f /tmp/rootfs/rootfs-initing
+    fi
+
+    if [ ! -d /tmp/rootfs/usr ]; then
+      touch /tmp/rootfs/rootfs-initing
+      set +e
+      # tar may throw an error like "tar: file changed as we read it".
+      # This is most likely due to the new output package in tmp directory.
+      # We ignore this error explicitly since we have excluded tmp directory.
+      tar -cpzf /tmp/rootfs.tgz --warning=no-file-changed --exclude=./tmp --exclude=./init-rootfs.sh --one-file-system -C / .
+      exitcode=$?
+      # exitcode 1 means "Some files differ", ignore it.
+      if [ "$exitcode" != "0" ] && [ "$exitcode" != "1" ]; then
+        exit "$exitcode"
+      fi
+      set -e
+      tar -xzf /tmp/rootfs.tgz -C /tmp/rootfs
+      psw_hash=$(python3 -c "import crypt; print(crypt.crypt(\"$PASSWORD\", crypt.mksalt(crypt.METHOD_SHA512)))")
+      psw_entry=root:"$psw_hash:$(($(date +%s) / 86400))":0:99999:7:::
+      sed -i "s@^root.*\$@${psw_entry}@g" /tmp/rootfs/etc/shadow
+      rm -f /tmp/rootfs/etc/ssh/ssh_host_*
+      ssh-keygen -q -N "" -t dsa -f /tmp/rootfs/etc/ssh/ssh_host_dsa_key
+      ssh-keygen -q -N "" -t rsa -b 4096 -f /tmp/rootfs/etc/ssh/ssh_host_rsa_key
+      ssh-keygen -q -N "" -t ecdsa -f /tmp/rootfs/etc/ssh/ssh_host_ecdsa_key
+      ssh-keygen -q -N "" -t ed25519 -f /tmp/rootfs/etc/ssh/ssh_host_ed25519_key
+      rm -f /tmp/rootfs/rootfs-initing
+    fi
