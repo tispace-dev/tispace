@@ -78,14 +78,20 @@ pub fn protected_routes() -> Router {
             }
         }
         let mut already_exists = false;
-        let mut quota_exceeded = false;
+        let mut quota_exceeded_err = None;
         let mut created = false;
         match storage
             .read_write(|state| {
                 match state.users.iter_mut().find(|u| u.username == user.username) {
                     Some(u) => {
                         if u.instances.len() + 1 > u.instance_quota {
-                            quota_exceeded = true;
+                            quota_exceeded_err = Some(InstanceError::QuotaExceeded {
+                                resource: "Instance".to_string(),
+                                quota: u.instance_quota,
+                                remaining: u.instance_quota - u.instances.len(),
+                                requested: 1,
+                                unit: "".to_string(),
+                            });
                             return false;
                         }
                         let mut total_cpu = 0;
@@ -100,10 +106,34 @@ pub fn protected_routes() -> Router {
                             total_memory += instance.memory;
                             total_disk_size += instance.disk_size;
                         }
-                        quota_exceeded = total_cpu + req.cpu > u.cpu_quota
-                            || total_memory + req.memory > u.memory_quota
-                            || total_disk_size + req.disk_size > u.disk_quota;
-                        if quota_exceeded {
+                        if total_cpu + req.cpu > u.cpu_quota {
+                            quota_exceeded_err = Some(InstanceError::QuotaExceeded {
+                                resource: "CPU".to_string(),
+                                quota: u.cpu_quota,
+                                remaining: u.cpu_quota - total_cpu,
+                                requested: req.cpu,
+                                unit: "C".to_string(),
+                            });
+                            return false;
+                        }
+                        if total_memory + req.memory > u.memory_quota {
+                            quota_exceeded_err = Some(InstanceError::QuotaExceeded {
+                                resource: "Memory".to_string(),
+                                quota: u.memory_quota,
+                                remaining: u.memory_quota - total_memory,
+                                requested: req.memory,
+                                unit: "GiB".to_string(),
+                            });
+                            return false;
+                        }
+                        if total_disk_size + req.disk_size > u.disk_quota {
+                            quota_exceeded_err = Some(InstanceError::QuotaExceeded {
+                                resource: "Disk size".to_string(),
+                                quota: u.disk_quota,
+                                remaining: u.disk_quota - total_disk_size,
+                                requested: req.disk_size,
+                                unit: "GiB".to_string(),
+                            });
                             return false;
                         }
 
@@ -143,8 +173,8 @@ pub fn protected_routes() -> Router {
 
         if already_exists {
             Err(InstanceError::AlreadyExists)
-        } else if quota_exceeded {
-            Err(InstanceError::QuotaExceeded)
+        } else if quota_exceeded_err.is_some() {
+            Err(quota_exceeded_err.unwrap())
         } else if created {
             Ok(StatusCode::CREATED)
         } else {
@@ -214,9 +244,7 @@ mod tests {
         assert!(verify_instance_name("dev01"));
         assert!(verify_instance_name("dev-01"));
         assert!(!verify_instance_name(""));
-        assert!(!verify_instance_name(
-            std::iter::repeat('a').take(64).collect::<String>().as_str()
-        ));
+        assert!(!verify_instance_name("a".repeat(64).as_str()));
         assert!(!verify_instance_name("dev.01"));
         assert!(!verify_instance_name("dev@01"));
         assert!(!verify_instance_name("DEV01"));

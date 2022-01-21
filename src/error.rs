@@ -38,8 +38,14 @@ crate enum InstanceError {
     InvalidArgs(String),
     #[error("Instance already exists")]
     AlreadyExists,
-    #[error("Quota exceeded")]
-    QuotaExceeded,
+    #[error("{resource} quota exceeded, quota: {quota:?}{unit}, remaining: {remaining:?}{unit}, requested: {requested:?}{unit}")]
+    QuotaExceeded {
+        resource: String,
+        quota: usize,
+        remaining: usize,
+        requested: usize,
+        unit: String,
+    },
     #[error("Create instance failed")]
     CreateFailed,
     #[error("Delete instance failed")]
@@ -53,7 +59,9 @@ impl IntoResponse for InstanceError {
         let (status, error_message) = match self {
             InstanceError::InvalidArgs(_) => (StatusCode::BAD_REQUEST, self.to_string()),
             InstanceError::AlreadyExists => (StatusCode::CONFLICT, self.to_string()),
-            InstanceError::QuotaExceeded => (StatusCode::UNPROCESSABLE_ENTITY, self.to_string()),
+            InstanceError::QuotaExceeded { .. } => {
+                (StatusCode::UNPROCESSABLE_ENTITY, self.to_string())
+            }
             InstanceError::CreateFailed => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             InstanceError::DeleteFailed => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             InstanceError::ImageUnverified => (StatusCode::BAD_REQUEST, self.to_string()),
