@@ -2,18 +2,22 @@ use axum::{
     extract::{Extension, Path},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get},
+    routing::{delete, get, post},
     Json, Router,
 };
 use once_cell::sync::Lazy;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use regex::Regex;
+use tracing::warn;
 
 use crate::model::InstanceStatus;
 use crate::storage::Storage;
 use crate::{
     auth::UserClaims,
-    dto::{CreateInstanceRequest, Instance as InstanceDto, ListInstancesResponse},
+    dto::{
+        CreateInstanceRequest, Instance as InstanceDto, ListInstancesResponse,
+        UpdateInstanceRequest,
+    },
 };
 use crate::{
     error::InstanceError,
@@ -77,15 +81,13 @@ pub fn protected_routes() -> Router {
                 return Err(InstanceError::ImageUnverified);
             }
         }
-        let mut already_exists = false;
-        let mut quota_exceeded_err = None;
-        let mut created = false;
+        let mut user_err = None;
         match storage
             .read_write(|state| {
                 match state.users.iter_mut().find(|u| u.username == user.username) {
                     Some(u) => {
                         if u.instances.len() + 1 > u.instance_quota {
-                            quota_exceeded_err = Some(InstanceError::QuotaExceeded {
+                            user_err = Some(InstanceError::QuotaExceeded {
                                 resource: "Instance".to_string(),
                                 quota: u.instance_quota,
                                 remaining: u.instance_quota - u.instances.len(),
@@ -97,9 +99,9 @@ pub fn protected_routes() -> Router {
                         let mut total_cpu = 0;
                         let mut total_memory = 0;
                         let mut total_disk_size = 0;
-                        for instance in &mut u.instances {
+                        for instance in &u.instances {
                             if instance.name == req.name {
-                                already_exists = true;
+                                user_err = Some(InstanceError::AlreadyExists);
                                 return false;
                             }
                             total_cpu += instance.cpu;
@@ -107,7 +109,7 @@ pub fn protected_routes() -> Router {
                             total_disk_size += instance.disk_size;
                         }
                         if total_cpu + req.cpu > u.cpu_quota {
-                            quota_exceeded_err = Some(InstanceError::QuotaExceeded {
+                            user_err = Some(InstanceError::QuotaExceeded {
                                 resource: "CPU".to_string(),
                                 quota: u.cpu_quota,
                                 remaining: u.cpu_quota - total_cpu,
@@ -117,7 +119,7 @@ pub fn protected_routes() -> Router {
                             return false;
                         }
                         if total_memory + req.memory > u.memory_quota {
-                            quota_exceeded_err = Some(InstanceError::QuotaExceeded {
+                            user_err = Some(InstanceError::QuotaExceeded {
                                 resource: "Memory".to_string(),
                                 quota: u.memory_quota,
                                 remaining: u.memory_quota - total_memory,
@@ -127,7 +129,7 @@ pub fn protected_routes() -> Router {
                             return false;
                         }
                         if total_disk_size + req.disk_size > u.disk_quota {
-                            quota_exceeded_err = Some(InstanceError::QuotaExceeded {
+                            user_err = Some(InstanceError::QuotaExceeded {
                                 resource: "Disk size".to_string(),
                                 quota: u.disk_quota,
                                 remaining: u.disk_quota - total_disk_size,
@@ -159,8 +161,7 @@ pub fn protected_routes() -> Router {
                                 .collect(),
                             status: InstanceStatus::Starting,
                         });
-                        created = true;
-                        created
+                        true
                     }
                     None => false,
                 }
@@ -168,17 +169,20 @@ pub fn protected_routes() -> Router {
             .await
         {
             Ok(_) => (),
-            Err(_) => return Err(InstanceError::CreateFailed),
+            Err(e) => {
+                warn!(
+                    username = user.username.as_str(),
+                    instance = req.name.as_str(),
+                    error = e.to_string().as_str(),
+                    "create instance encountered error"
+                );
+                return Err(InstanceError::CreateFailed);
+            }
         }
 
-        if already_exists {
-            Err(InstanceError::AlreadyExists)
-        } else if quota_exceeded_err.is_some() {
-            Err(quota_exceeded_err.unwrap())
-        } else if created {
-            Ok(StatusCode::CREATED)
-        } else {
-            Err(InstanceError::CreateFailed)
+        match user_err {
+            Some(e) => Err(e),
+            None => Ok(StatusCode::CREATED),
         }
     }
 
@@ -209,9 +213,196 @@ pub fn protected_routes() -> Router {
             .await
         {
             Ok(_) => (),
-            Err(_) => return Err(InstanceError::DeleteFailed),
+            Err(e) => {
+                warn!(
+                    username = user.username.as_str(),
+                    instance = instance_name.as_str(),
+                    error = e.to_string().as_str(),
+                    "delete instance encountered error"
+                );
+                return Err(InstanceError::DeleteFailed);
+            }
         }
         Ok(StatusCode::NO_CONTENT)
+    }
+
+    async fn update_instance(
+        user: UserClaims,
+        Path(instance_name): Path<String>,
+        Json(req): Json<UpdateInstanceRequest>,
+        Extension(storage): Extension<Storage>,
+    ) -> Result<impl IntoResponse, InstanceError> {
+        if req.cpu == 0 {
+            return Err(InstanceError::InvalidArgs("cpu".to_string()));
+        }
+        if req.memory == 0 {
+            return Err(InstanceError::InvalidArgs("memory".to_string()));
+        }
+        let mut user_err = None;
+        match storage
+            .read_write(|state| {
+                match state.users.iter_mut().find(|u| u.username == user.username) {
+                    Some(u) => {
+                        let mut total_cpu = 0;
+                        let mut total_memory = 0;
+                        for instance in &u.instances {
+                            if instance.name != instance_name {
+                                total_cpu += instance.cpu;
+                                total_memory += instance.memory;
+                            }
+                        }
+                        match u
+                            .instances
+                            .iter_mut()
+                            .find(|instance| instance.name == instance_name)
+                        {
+                            Some(instance) => {
+                                if instance.stage == InstanceStage::Deleted {
+                                    user_err = Some(InstanceError::AlreadyDeleted);
+                                    return false;
+                                }
+                                if instance.status != InstanceStatus::Stopped {
+                                    user_err = Some(InstanceError::NotYetStopped);
+                                    return false;
+                                }
+                                if total_cpu + req.cpu > u.cpu_quota {
+                                    user_err = Some(InstanceError::QuotaExceeded {
+                                        resource: "CPU".to_string(),
+                                        quota: u.cpu_quota,
+                                        remaining: u.cpu_quota - total_cpu,
+                                        requested: req.cpu,
+                                        unit: "C".to_string(),
+                                    });
+                                    return false;
+                                }
+                                if total_memory + req.memory > u.memory_quota {
+                                    user_err = Some(InstanceError::QuotaExceeded {
+                                        resource: "Memory".to_string(),
+                                        quota: u.memory_quota,
+                                        remaining: u.memory_quota - total_memory,
+                                        requested: req.memory,
+                                        unit: "GiB".to_string(),
+                                    });
+                                    return false;
+                                }
+                                instance.cpu = req.cpu;
+                                instance.memory = req.memory;
+                                true
+                            }
+                            None => false,
+                        }
+                    }
+                    None => false,
+                }
+            })
+            .await
+        {
+            Ok(_) => (),
+            Err(e) => {
+                warn!(
+                    username = user.username.as_str(),
+                    instance = instance_name.as_str(),
+                    error = e.to_string().as_str(),
+                    "update instance encountered error"
+                );
+                return Err(InstanceError::UpdateFailed);
+            }
+        }
+
+        match user_err {
+            Some(e) => Err(e),
+            None => Ok(StatusCode::NO_CONTENT),
+        }
+    }
+
+    async fn start_instance(
+        user: UserClaims,
+        Path(instance_name): Path<String>,
+        Extension(storage): Extension<Storage>,
+    ) -> Result<impl IntoResponse, InstanceError> {
+        let mut user_err = None;
+        match storage
+            .read_write(|state| {
+                match state.users.iter_mut().find(|u| u.username == user.username) {
+                    Some(u) => {
+                        match u
+                            .instances
+                            .iter_mut()
+                            .find(|instance| instance.name == instance_name)
+                        {
+                            Some(instance) => {
+                                if instance.stage == InstanceStage::Deleted {
+                                    user_err = Some(InstanceError::AlreadyDeleted);
+                                    return false;
+                                }
+                                if instance.stage != InstanceStage::Running {
+                                    instance.stage = InstanceStage::Running;
+                                    instance.status = InstanceStatus::Starting;
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            None => false,
+                        }
+                    }
+                    None => false,
+                }
+            })
+            .await
+        {
+            Ok(_) => (),
+            Err(_) => return Err(InstanceError::StartFailed),
+        }
+        match user_err {
+            Some(e) => Err(e),
+            None => Ok(StatusCode::NO_CONTENT),
+        }
+    }
+
+    async fn stop_instance(
+        user: UserClaims,
+        Path(instance_name): Path<String>,
+        Extension(storage): Extension<Storage>,
+    ) -> Result<impl IntoResponse, InstanceError> {
+        let mut user_err = None;
+        match storage
+            .read_write(|state| {
+                match state.users.iter_mut().find(|u| u.username == user.username) {
+                    Some(u) => {
+                        match u
+                            .instances
+                            .iter_mut()
+                            .find(|instance| instance.name == instance_name)
+                        {
+                            Some(instance) => {
+                                if instance.stage == InstanceStage::Deleted {
+                                    user_err = Some(InstanceError::AlreadyDeleted);
+                                    return false;
+                                }
+                                if instance.stage != InstanceStage::Stopped {
+                                    instance.stage = InstanceStage::Stopped;
+                                    instance.status = InstanceStatus::Stopping;
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            None => false,
+                        }
+                    }
+                    None => false,
+                }
+            })
+            .await
+        {
+            Ok(_) => (),
+            Err(_) => return Err(InstanceError::StopFailed),
+        }
+        match user_err {
+            Some(e) => Err(e),
+            None => Ok(StatusCode::NO_CONTENT),
+        }
     }
 
     async fn list_instances(
@@ -232,7 +423,12 @@ pub fn protected_routes() -> Router {
 
     Router::new()
         .route("/instances", get(list_instances).post(create_instance))
-        .route("/instances/:instance_name", delete(delete_instance))
+        .route(
+            "/instances/:instance_name",
+            delete(delete_instance).patch(update_instance),
+        )
+        .route("/instances/:instance_name/start", post(start_instance))
+        .route("/instances/:instance_name/stop", post(stop_instance))
 }
 
 #[cfg(test)]

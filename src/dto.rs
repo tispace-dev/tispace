@@ -12,6 +12,13 @@ crate struct CreateInstanceRequest {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
+crate struct UpdateInstanceRequest {
+    crate cpu: usize,
+    crate memory: usize,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 crate struct Instance {
     crate name: String,
     crate cpu: usize,
