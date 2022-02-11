@@ -7,7 +7,7 @@ use google_signin::{CachedCerts, Client};
 use headers::{authorization::Bearer, Authorization};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use tokio::sync::OnceCell;
+use tokio::sync::RwLock;
 use tracing::warn;
 
 use crate::error::AuthError;
@@ -22,7 +22,7 @@ static CLIENT: Lazy<Client> = Lazy::new(|| {
     client
 });
 
-static CACHEDCERTS: OnceCell<CachedCerts> = OnceCell::const_new();
+static CACHEDCERTS: Lazy<RwLock<CachedCerts>> = Lazy::new(|| RwLock::new(CachedCerts::new()));
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -44,15 +44,20 @@ where
             TypedHeader::<Authorization<Bearer>>::from_request(req)
                 .await
                 .map_err(|_| AuthError::InvalidToken)?;
-        let certs = CACHEDCERTS
-            .get_or_init(|| async {
-                let mut certs = CachedCerts::new();
-                certs.refresh_if_needed().await.unwrap();
 
-                certs
-            })
-            .await;
-        let id_info = CLIENT.verify(bearer.token(), certs).await.map_err(|e| {
+        let mut certs = CACHEDCERTS.read().await.clone();
+        match certs.refresh_if_needed().await {
+            Ok(true) => {
+                *CACHEDCERTS.write().await = certs.clone();
+            }
+            Ok(false) => {}
+            Err(e) => {
+                warn!("refresh certs err {:?}", e);
+                return Err(AuthError::InvalidToken);
+            }
+        }
+
+        let id_info = CLIENT.verify(bearer.token(), &certs).await.map_err(|e| {
             warn!("verify token err {:?}", e);
             AuthError::InvalidToken
         })?;
