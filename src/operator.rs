@@ -153,6 +153,8 @@ fn build_pod_service(pod_name: &str) -> Service {
             ..Default::default()
         },
         spec: Some(ServiceSpec {
+            // Explictly set it for backward compatibility.
+            allocate_load_balancer_node_ports: Some(true),
             selector: Some(BTreeMap::from([(
                 "tispace/instance".to_owned(),
                 pod_name.to_owned(),
@@ -163,7 +165,7 @@ fn build_pod_service(pod_name: &str) -> Service {
                 target_port: Some(IntOrString::Int(22)),
                 ..Default::default()
             }]),
-            type_: Some("NodePort".to_owned()),
+            type_: Some("LoadBalancer".to_owned()),
             ..Default::default()
         }),
         ..Default::default()
@@ -220,6 +222,20 @@ fn get_ssh_port(svc: &Service) -> Option<i32> {
                 .iter()
                 .find(|port| matches!(port.name.as_deref(), Some("ssh")))
                 .and_then(|port| port.node_port)
+        })
+}
+
+fn get_external_ip(svc: &Service) -> Option<String> {
+    svc.status
+        .as_ref()
+        .and_then(|status| status.load_balancer.as_ref())
+        .and_then(|lb_status| lb_status.ingress.as_ref())
+        .and_then(|ingress| {
+            if ingress.is_empty() {
+                None
+            } else {
+                ingress[0].ip.clone()
+            }
         })
 }
 
@@ -457,6 +473,8 @@ impl Operator {
         let mut new_status = instance.status.clone();
         let mut new_ssh_host = None;
         let mut new_ssh_port = None;
+        let mut new_internal_ip = None;
+        let mut new_external_ip = None;
         let mut deleted = false;
         match instance.stage {
             InstanceStage::Stopped => match pods.get(&pod_name).await {
@@ -496,10 +514,16 @@ impl Operator {
                         if let Some(host) = pod.status.as_ref().and_then(|s| s.host_ip.clone()) {
                             new_ssh_host = Some(host);
                         }
+                        if let Some(pod_ip) = pod.status.as_ref().and_then(|s| s.pod_ip.clone()) {
+                            new_internal_ip = Some(pod_ip);
+                        }
                         match services.get(&pod_name).await {
                             Ok(svc) => {
                                 if let Some(port) = get_ssh_port(&svc) {
                                     new_ssh_port = Some(port);
+                                }
+                                if let Some(ip) = get_external_ip(&svc) {
+                                    new_external_ip = Some(ip);
                                 }
                             }
                             Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {}
@@ -562,6 +586,8 @@ impl Operator {
             && new_status == instance.status
             && new_ssh_host == instance.ssh_host
             && new_ssh_port == instance.ssh_port
+            && new_internal_ip == instance.internal_ip
+            && new_external_ip == instance.external_ip
         {
             return Ok(());
         }
@@ -578,6 +604,8 @@ impl Operator {
                                 u.instances[i].ssh_host = new_ssh_host.clone();
                                 u.instances[i].ssh_port = new_ssh_port;
                                 u.instances[i].status = new_status.clone();
+                                u.instances[i].internal_ip = new_internal_ip.clone();
+                                u.instances[i].external_ip = new_external_ip.clone();
                             }
                             return true;
                         }
