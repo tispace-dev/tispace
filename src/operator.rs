@@ -11,6 +11,7 @@ use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::{DeleteParams, PostParams};
 use kube::error::ErrorResponse;
 use kube::{Api, Client};
+use once_cell::sync::Lazy;
 use std::collections::BTreeMap;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
@@ -20,9 +21,11 @@ use crate::storage::Storage;
 
 const NAMESPACE: &str = "tispace";
 const FAKE_IMAGE: &str = "k8s.gcr.io/pause:3.5";
-const RBD_STORAGE_CLASS_NAME: &str = "rook-ceph-block";
 const DEFAULT_RUNTIME_CLASS_NAME: &str = "kata";
 const PASSWORD_ENV_KEY: &str = "PASSWORD";
+
+static STORAGE_CLASS_NAME: Lazy<String> =
+    Lazy::new(|| std::env::var("STORAGE_CLASS_NAME").unwrap_or_else(|_| "openebs-lvm".to_owned()));
 
 fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Container {
     Container {
@@ -98,7 +101,7 @@ fn build_rootfs_pvc(pod_name: &str, disk_size: usize) -> PersistentVolumeClaim {
                 )])),
                 ..Default::default()
             }),
-            storage_class_name: Some(RBD_STORAGE_CLASS_NAME.to_owned()),
+            storage_class_name: Some(STORAGE_CLASS_NAME.to_owned()),
             ..Default::default()
         }),
         ..Default::default()
@@ -273,7 +276,10 @@ impl Operator {
                             }
                         }
                         InstanceStage::Running => {
-                            if instance.status != InstanceStatus::Running {
+                            if instance.status != InstanceStatus::Running
+                            // If external ip is missing, we need to ensure pod service is created.
+                                || instance.external_ip.is_none()
+                            {
                                 info!(
                                     username = user.username.as_str(),
                                     instance = instance.name.as_str(),
