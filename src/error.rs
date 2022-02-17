@@ -38,6 +38,10 @@ crate enum InstanceError {
     InvalidArgs(String),
     #[error("Instance already exists")]
     AlreadyExists,
+    #[error("Instance is already deleted")]
+    AlreadyDeleted,
+    #[error("Instance is not yet stoppped")]
+    NotYetStopped,
     #[error("{resource} quota exceeded, quota: {quota:?}{unit}, remaining: {remaining:?}{unit}, requested: {requested:?}{unit}")]
     QuotaExceeded {
         resource: String,
@@ -50,6 +54,12 @@ crate enum InstanceError {
     CreateFailed,
     #[error("Delete instance failed")]
     DeleteFailed,
+    #[error("Update instance failed")]
+    UpdateFailed,
+    #[error("Start instance failed")]
+    StartFailed,
+    #[error("Stop instance failed")]
+    StopFailed,
     #[error("Image is unverified")]
     ImageUnverified,
 }
@@ -59,11 +69,17 @@ impl IntoResponse for InstanceError {
         let (status, error_message) = match self {
             InstanceError::InvalidArgs(_) => (StatusCode::BAD_REQUEST, self.to_string()),
             InstanceError::AlreadyExists => (StatusCode::CONFLICT, self.to_string()),
+            InstanceError::AlreadyDeleted | InstanceError::NotYetStopped => {
+                (StatusCode::BAD_REQUEST, self.to_string())
+            }
             InstanceError::QuotaExceeded { .. } => {
                 (StatusCode::UNPROCESSABLE_ENTITY, self.to_string())
             }
-            InstanceError::CreateFailed => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
-            InstanceError::DeleteFailed => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            InstanceError::CreateFailed
+            | InstanceError::DeleteFailed
+            | InstanceError::UpdateFailed
+            | InstanceError::StartFailed
+            | InstanceError::StopFailed => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             InstanceError::ImageUnverified => (StatusCode::BAD_REQUEST, self.to_string()),
         };
         let body = Json(json!({
