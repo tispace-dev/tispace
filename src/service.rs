@@ -160,6 +160,8 @@ pub fn protected_routes() -> Router {
                                 .map(char::from)
                                 .collect(),
                             status: InstanceStatus::Starting,
+                            internal_ip: None,
+                            external_ip: None,
                         });
                         true
                     }

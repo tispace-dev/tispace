@@ -25,11 +25,15 @@ crate struct Instance {
     crate memory: usize,
     crate disk_size: usize,
     crate hostname: String,
+    // Deprecated: use external_ip instead.
     crate ssh_host: Option<String>,
+    // Deprecated: use 22 instead.
     crate ssh_port: Option<i32>,
     crate password: String,
     crate status: String,
     crate image: String,
+    crate internal_ip: Option<String>,
+    crate external_ip: Option<String>,
 }
 
 fn strip_image_tag(image: String) -> String {
@@ -53,6 +57,8 @@ impl From<&crate::model::Instance> for Instance {
             password: m.password.clone(),
             status: m.status.to_string(),
             image: strip_image_tag(m.image.clone()),
+            internal_ip: m.internal_ip.clone(),
+            external_ip: m.external_ip.clone(),
         }
     }
 }
