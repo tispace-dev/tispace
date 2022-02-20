@@ -160,7 +160,7 @@ const Home: NextPage = () => {
         if (!record.external_ip) {
           return <Spin />
         }
-        const sshCommand = `ssh root@${record.external_ip} -p`
+        const sshCommand = `ssh root@${record.external_ip} `
         return (
           <div className={styles.ssh}>
             <span className={styles.command}>{sshCommand}</span>
