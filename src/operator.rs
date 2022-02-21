@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
 use either::Either;
 use k8s_openapi::api::core::v1::{
-    ConfigMapVolumeSource, Container, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec,
-    PersistentVolumeClaimVolumeSource, Pod, PodDNSConfig, PodSpec, ResourceRequirements,
-    SecurityContext, Service, ServicePort, ServiceSpec, Volume, VolumeMount,
+    Capabilities, ConfigMapVolumeSource, Container, EnvVar, PersistentVolumeClaim,
+    PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource, Pod, PodDNSConfig, PodSpec,
+    ResourceRequirements, SecurityContext, Service, ServicePort, ServiceSpec, Volume, VolumeMount,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
@@ -11,6 +11,7 @@ use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::{DeleteParams, PostParams};
 use kube::error::ErrorResponse;
 use kube::{Api, Client};
+use once_cell::sync::Lazy;
 use std::collections::BTreeMap;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
@@ -20,20 +21,54 @@ use crate::storage::Storage;
 
 const NAMESPACE: &str = "tispace";
 const FAKE_IMAGE: &str = "k8s.gcr.io/pause:3.5";
-const RBD_STORAGE_CLASS_NAME: &str = "rook-ceph-block";
-const DEFAULT_RUNTIME_CLASS_NAME: &str = "kata";
 const PASSWORD_ENV_KEY: &str = "PASSWORD";
 
-fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Container {
+static DEFAULT_ROOTFS_IMAGE: Lazy<String> = Lazy::new(|| {
+    std::env::var("DEFAULT_ROOTFS_IMAGE").unwrap_or_else(|_| "tispace/centos7".to_owned())
+});
+static DEFAULT_ROOTFS_IMAGE_TAG: Lazy<String> =
+    Lazy::new(|| std::env::var("DEFAULT_ROOTFS_IMAGE_TAG").unwrap_or_else(|_| "latest".to_owned()));
+static DEFAULT_RUNTIME_CLASS_NAME: Lazy<String> =
+    Lazy::new(|| std::env::var("DEFAULT_RUNTIME_CLASS_NAME").unwrap_or_else(|_| "kata".to_owned()));
+static STORAGE_CLASS_NAME: Lazy<String> =
+    Lazy::new(|| std::env::var("STORAGE_CLASS_NAME").unwrap_or_else(|_| "openebs-lvm".to_owned()));
+const DEFAULT_CONTAINER_CAPS: [&str; 14] = [
+    "CHOWN",
+    "DAC_OVERRIDE",
+    "FSETID",
+    "FOWNER",
+    "MKNOD",
+    "NET_RAW",
+    "SETGID",
+    "SETUID",
+    "SETFCAP",
+    "SETPCAP",
+    "NET_BIND_SERVICE",
+    "SYS_CHROOT",
+    "KILL",
+    "AUDIT_WRITE",
+];
+
+fn append_image_tag_if_missing(mut image: String) -> String {
+    if !image.contains(':') {
+        image.push(':');
+        image.push_str(DEFAULT_ROOTFS_IMAGE_TAG.as_str());
+    }
+    image
+}
+
+fn build_container(
+    pod_name: &str,
+    cpu_limit: usize,
+    memory_limit: usize,
+    runtime: &str,
+) -> Container {
     Container {
         name: pod_name.to_owned(),
         command: Some(vec!["/sbin/init".to_owned()]),
         image: Some(FAKE_IMAGE.to_owned()),
         image_pull_policy: Some("IfNotPresent".to_owned()),
-        security_context: Some(SecurityContext {
-            privileged: Some(true),
-            ..Default::default()
-        }),
+        security_context: Some(build_security_context(runtime)),
         volume_mounts: Some(vec![VolumeMount {
             name: "rootfs".to_owned(),
             mount_path: "/".to_owned(),
@@ -47,6 +82,30 @@ fn build_container(pod_name: &str, cpu_limit: usize, memory_limit: usize) -> Con
             ..Default::default()
         }),
         ..Default::default()
+    }
+}
+
+fn build_security_context(runtime: &str) -> SecurityContext {
+    if runtime == "kata" {
+        SecurityContext {
+            privileged: Some(true),
+            ..Default::default()
+        }
+    } else {
+        // It's unsafe to enable privileged mode in container whose runtime is not kata.
+        // But leave a least capabilities set to ensure systemd can run properly.
+        SecurityContext {
+            capabilities: Some(Capabilities {
+                add: Some(
+                    DEFAULT_CONTAINER_CAPS
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
+                ),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
     }
 }
 
@@ -98,7 +157,7 @@ fn build_rootfs_pvc(pod_name: &str, disk_size: usize) -> PersistentVolumeClaim {
                 )])),
                 ..Default::default()
             }),
-            storage_class_name: Some(RBD_STORAGE_CLASS_NAME.to_owned()),
+            storage_class_name: Some(STORAGE_CLASS_NAME.to_owned()),
             ..Default::default()
         }),
         ..Default::default()
@@ -172,6 +231,9 @@ fn build_pod_service(pod_name: &str) -> Service {
     }
 }
 
+// TODO: refactor.
+// Make clippy happy.
+#[allow(clippy::too_many_arguments)]
 fn build_pod(
     pod_name: &str,
     cpu_limit: usize,
@@ -180,6 +242,7 @@ fn build_pod(
     subdomain: &str,
     password: &str,
     image: &str,
+    runtime: &str,
 ) -> Pod {
     Pod {
         metadata: ObjectMeta {
@@ -195,7 +258,7 @@ fn build_pod(
             hostname: Some(hostname.to_owned()),
             subdomain: Some(subdomain.to_owned()),
             automount_service_account_token: Some(false),
-            containers: vec![build_container(pod_name, cpu_limit, memory_limit)],
+            containers: vec![build_container(pod_name, cpu_limit, memory_limit, runtime)],
             init_containers: Some(vec![build_init_container(pod_name, password, image)]),
             volumes: Some(vec![
                 build_rootfs_volume(pod_name),
@@ -206,7 +269,7 @@ fn build_pod(
                 searches: Some(vec![format!("{}.tispace.svc.cluster.local", subdomain)]),
                 ..Default::default()
             }),
-            runtime_class_name: Some(DEFAULT_RUNTIME_CLASS_NAME.to_owned()),
+            runtime_class_name: Some(runtime.to_owned()),
             ..Default::default()
         }),
         ..Default::default()
@@ -254,6 +317,22 @@ impl Operator {
             let state = self.storage.snapshot().await;
             for user in &state.users {
                 for instance in &user.instances {
+                    match self.sync_instance(user, instance).await {
+                        Ok(true) => {
+                            // Instance is updated, continue with the next loop.
+                            continue;
+                        }
+                        Ok(false) => {}
+                        Err(e) => {
+                            warn!(
+                                username = user.username.as_str(),
+                                instance = instance.name.as_str(),
+                                error = e.to_string().as_str(),
+                                "syncing instance encountered error"
+                            );
+                            continue;
+                        }
+                    }
                     match instance.stage {
                         InstanceStage::Stopped => {
                             if instance.status != InstanceStatus::Stopped {
@@ -273,7 +352,10 @@ impl Operator {
                             }
                         }
                         InstanceStage::Running => {
-                            if instance.status != InstanceStatus::Running {
+                            if instance.status != InstanceStatus::Running
+                            // If external ip is missing, we need to ensure pod service is created.
+                                || instance.external_ip.is_none()
+                            {
                                 info!(
                                     username = user.username.as_str(),
                                     instance = instance.name.as_str(),
@@ -378,6 +460,45 @@ impl Operator {
         }
     }
 
+    async fn sync_instance(&self, user: &User, instance: &Instance) -> Result<bool> {
+        let image = instance
+            .image
+            .clone()
+            .unwrap_or_else(|| DEFAULT_ROOTFS_IMAGE.to_owned());
+        let image = append_image_tag_if_missing(image);
+        let runtime = instance
+            .runtime
+            .clone()
+            .unwrap_or_else(|| DEFAULT_RUNTIME_CLASS_NAME.to_owned());
+        if instance.image.as_ref() == Some(&image) && instance.runtime.as_ref() == Some(&runtime) {
+            return Ok(false);
+        }
+        let instance_name = instance.name.clone();
+        self.storage
+            .read_write(|state| {
+                match state.users.iter_mut().find(|u| u.username == user.username) {
+                    Some(u) => {
+                        match u
+                            .instances
+                            .iter_mut()
+                            .find(|instance| instance.name == instance_name)
+                        {
+                            Some(instance) => {
+                                instance.image = Some(image.clone());
+                                instance.runtime = Some(runtime.clone());
+                                true
+                            }
+                            None => false,
+                        }
+                    }
+                    None => false,
+                }
+            })
+            .await
+            .map_err(|e| anyhow!(e))?;
+        Ok(true)
+    }
+
     async fn stop_instance(&self, user: &User, instance: &Instance) -> Result<()> {
         let pod_name = format!("{}-{}", user.username, instance.name);
         info!("deleting pod {}", pod_name);
@@ -444,7 +565,8 @@ impl Operator {
                     &hostname,
                     &subdomain,
                     &instance.password,
-                    &instance.image,
+                    instance.image.as_ref().unwrap(),
+                    instance.runtime.as_ref().unwrap(),
                 );
                 pods.create(&PostParams::default(), &pod).await?;
             }
@@ -615,5 +737,22 @@ impl Operator {
             })
             .await
             .map_err(|e| anyhow!(e))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_append_image_tag_if_missing() {
+        assert_eq!(
+            append_image_tag_if_missing("tispace/ubuntu2004".to_owned()),
+            "tispace/ubuntu2004:latest".to_owned()
+        );
+        assert_eq!(
+            append_image_tag_if_missing("tispace/ubuntu2004:1.2.0".to_owned()),
+            "tispace/ubuntu2004:1.2.0".to_owned()
+        );
     }
 }

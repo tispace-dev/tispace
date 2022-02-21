@@ -8,13 +8,15 @@ crate struct CreateInstanceRequest {
     crate memory: usize,
     crate disk_size: usize,
     crate image: Option<String>,
+    crate runtime: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 crate struct UpdateInstanceRequest {
-    crate cpu: usize,
-    crate memory: usize,
+    crate cpu: Option<usize>,
+    crate memory: Option<usize>,
+    crate runtime: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -31,9 +33,10 @@ crate struct Instance {
     crate ssh_port: Option<i32>,
     crate password: String,
     crate status: String,
-    crate image: String,
+    crate image: Option<String>,
     crate internal_ip: Option<String>,
     crate external_ip: Option<String>,
+    crate runtime: Option<String>,
 }
 
 fn strip_image_tag(image: String) -> String {
@@ -56,9 +59,10 @@ impl From<&crate::model::Instance> for Instance {
             ssh_port: m.ssh_port,
             password: m.password.clone(),
             status: m.status.to_string(),
-            image: strip_image_tag(m.image.clone()),
+            image: m.image.clone().map(strip_image_tag),
             internal_ip: m.internal_ip.clone(),
             external_ip: m.external_ip.clone(),
+            runtime: m.runtime.clone(),
         }
     }
 }

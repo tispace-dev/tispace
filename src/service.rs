@@ -26,13 +26,9 @@ use crate::{
 
 static INSTANCE_NAME_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$").unwrap());
-static DEFAULT_ROOTFS_IMAGE: Lazy<String> = Lazy::new(|| {
-    std::env::var("DEFAULT_ROOTFS_IMAGE").unwrap_or_else(|_| "tispace/centos7".to_owned())
-});
-static DEFAULT_ROOTFS_IMAGE_TAG: Lazy<String> =
-    Lazy::new(|| std::env::var("DEFAULT_ROOTFS_IMAGE_TAG").unwrap_or_else(|_| "latest".to_owned()));
-static VERIFIED_ROOTFS_IMAGES: Lazy<Vec<&str>> =
-    Lazy::new(|| vec!["tispace/centos7", "tispace/centos8", "tispace/ubuntu2004"]);
+const VERIFIED_ROOTFS_IMAGES: [&str; 3] =
+    ["tispace/centos7", "tispace/centos8", "tispace/ubuntu2004"];
+const SUPPORTED_RUNTIMES: [&str; 2] = ["kata", "runc"];
 
 /// Returns true if and only if the name is a valid instance name.
 ///
@@ -48,14 +44,6 @@ fn verify_instance_name(name: &str) -> bool {
 /// Currently we only support images which is in the list of verified images.
 fn is_verified_rootfs_image(image: &str) -> bool {
     VERIFIED_ROOTFS_IMAGES.iter().any(|&s| s == image)
-}
-
-fn append_image_tag_if_missing(mut image: String) -> String {
-    if !image.contains(':') {
-        image.push(':');
-        image.push_str(DEFAULT_ROOTFS_IMAGE_TAG.as_str());
-    }
-    image
 }
 
 pub fn protected_routes() -> Router {
@@ -79,6 +67,11 @@ pub fn protected_routes() -> Router {
         if let Some(image) = &req.image {
             if !is_verified_rootfs_image(image) {
                 return Err(InstanceError::ImageUnverified);
+            }
+        }
+        if let Some(runtime) = &req.runtime {
+            if !SUPPORTED_RUNTIMES.iter().any(|&s| s == runtime) {
+                return Err(InstanceError::InvalidArgs("runtime".to_string()));
             }
         }
         let mut user_err = None;
@@ -139,14 +132,9 @@ pub fn protected_routes() -> Router {
                             return false;
                         }
 
-                        let image = req
-                            .image
-                            .clone()
-                            .unwrap_or_else(|| DEFAULT_ROOTFS_IMAGE.to_owned());
-
                         u.instances.push(Instance {
                             name: req.name.clone(),
-                            image: append_image_tag_if_missing(image),
+                            image: req.image.clone(),
                             cpu: req.cpu,
                             memory: req.memory,
                             disk_size: req.disk_size,
@@ -162,6 +150,7 @@ pub fn protected_routes() -> Router {
                             status: InstanceStatus::Starting,
                             internal_ip: None,
                             external_ip: None,
+                            runtime: req.runtime.clone(),
                         });
                         true
                     }
@@ -234,11 +223,16 @@ pub fn protected_routes() -> Router {
         Json(req): Json<UpdateInstanceRequest>,
         Extension(storage): Extension<Storage>,
     ) -> Result<impl IntoResponse, InstanceError> {
-        if req.cpu == 0 {
+        if let Some(0) = req.cpu {
             return Err(InstanceError::InvalidArgs("cpu".to_string()));
         }
-        if req.memory == 0 {
+        if let Some(0) = req.memory {
             return Err(InstanceError::InvalidArgs("memory".to_string()));
+        }
+        if let Some(runtime) = &req.runtime {
+            if !SUPPORTED_RUNTIMES.iter().any(|&s| s == runtime) {
+                return Err(InstanceError::InvalidArgs("runtime".to_string()));
+            }
         }
         let mut user_err = None;
         match storage
@@ -267,28 +261,35 @@ pub fn protected_routes() -> Router {
                                     user_err = Some(InstanceError::NotYetStopped);
                                     return false;
                                 }
-                                if total_cpu + req.cpu > u.cpu_quota {
-                                    user_err = Some(InstanceError::QuotaExceeded {
-                                        resource: "CPU".to_string(),
-                                        quota: u.cpu_quota,
-                                        remaining: u.cpu_quota - total_cpu,
-                                        requested: req.cpu,
-                                        unit: "C".to_string(),
-                                    });
-                                    return false;
+                                if let Some(cpu) = req.cpu {
+                                    if total_cpu + cpu > u.cpu_quota {
+                                        user_err = Some(InstanceError::QuotaExceeded {
+                                            resource: "CPU".to_string(),
+                                            quota: u.cpu_quota,
+                                            remaining: u.cpu_quota - total_cpu,
+                                            requested: cpu,
+                                            unit: "C".to_string(),
+                                        });
+                                        return false;
+                                    }
+                                    instance.cpu = cpu;
                                 }
-                                if total_memory + req.memory > u.memory_quota {
-                                    user_err = Some(InstanceError::QuotaExceeded {
-                                        resource: "Memory".to_string(),
-                                        quota: u.memory_quota,
-                                        remaining: u.memory_quota - total_memory,
-                                        requested: req.memory,
-                                        unit: "GiB".to_string(),
-                                    });
-                                    return false;
+                                if let Some(memory) = req.memory {
+                                    if total_memory + memory > u.memory_quota {
+                                        user_err = Some(InstanceError::QuotaExceeded {
+                                            resource: "Memory".to_string(),
+                                            quota: u.memory_quota,
+                                            remaining: u.memory_quota - total_memory,
+                                            requested: memory,
+                                            unit: "GiB".to_string(),
+                                        });
+                                        return false;
+                                    }
+                                    instance.memory = memory;
                                 }
-                                instance.cpu = req.cpu;
-                                instance.memory = req.memory;
+                                if let Some(runtime) = &req.runtime {
+                                    instance.runtime = Some(runtime.to_owned());
+                                }
                                 true
                             }
                             None => false,
@@ -457,17 +458,5 @@ mod tests {
         assert!(is_verified_rootfs_image("tispace/centos8"));
         assert!(!is_verified_rootfs_image("jrei/systemd-ubuntu"));
         assert!(!is_verified_rootfs_image("jrei/systemd-centos"));
-    }
-
-    #[test]
-    fn test_append_image_tag_if_missing() {
-        assert_eq!(
-            append_image_tag_if_missing("tispace/ubuntu2004".to_owned()),
-            "tispace/ubuntu2004:latest".to_owned()
-        );
-        assert_eq!(
-            append_image_tag_if_missing("tispace/ubuntu2004:1.2.0".to_owned()),
-            "tispace/ubuntu2004:1.2.0".to_owned()
-        );
     }
 }
