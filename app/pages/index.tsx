@@ -24,10 +24,13 @@ type Instance = {
   memory: number
   disk_size: number
   status: string
+  // Deprecated: use external_ip instead.
   ssh_host: string
+  // Deprecated: use 22 instead.
   ssh_port: number
   password: string
   image: string
+  external_ip: string
 }
 
 enum InstanceStatus {
@@ -151,13 +154,13 @@ const Home: NextPage = () => {
     },
     {
       title: 'SSH Command',
-      dataIndex: 'ssh_host',
-      key: 'ssh_host',
+      dataIndex: 'external_ip',
+      key: 'external_ip',
       render: (_, record: Instance) => {
-        if (!record.ssh_host || !record.ssh_port) {
+        if (!record.external_ip) {
           return <Spin />
         }
-        const sshCommand = `ssh root@${record.ssh_host} -p ${record.ssh_port}`
+        const sshCommand = `ssh root@${record.external_ip}`
         return (
           <div className={styles.ssh}>
             <span className={styles.command}>{sshCommand}</span>
@@ -192,6 +195,17 @@ const Home: NextPage = () => {
             </CopyToClipboard>
           </>
         )
+      },
+    },
+    {
+      title: 'External IP',
+      dataIndex: 'external_ip',
+      key: 'external_ip',
+      render: (external_ip) => {
+        if (!external_ip) {
+          return <Spin />
+        }
+        return external_ip
       },
     },
     {
@@ -257,7 +271,13 @@ const Home: NextPage = () => {
         onCreate={handleCreate}
         onCancel={handleCancel}
       />
-      <Table dataSource={instances} columns={columns} rowKey="name" bordered />
+      <Table
+        dataSource={instances}
+        columns={columns}
+        rowKey="name"
+        bordered
+        scroll={{ x: 1300 }}
+      />
     </Layout>
   )
 }
