@@ -26,8 +26,7 @@ use crate::{
 
 static INSTANCE_NAME_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$").unwrap());
-const VERIFIED_ROOTFS_IMAGES: [&str; 3] =
-    ["tispace/centos7", "tispace/centos8", "tispace/ubuntu2004"];
+const VERIFIED_ROOTFS_IMAGES: [&str; 2] = ["tispace/centos7", "tispace/ubuntu2004"];
 const SUPPORTED_RUNTIMES: [&str; 2] = ["kata", "runc"];
 
 /// Returns true if and only if the name is a valid instance name.
@@ -455,7 +454,7 @@ mod tests {
     fn test_is_verified_rootfs_image() {
         assert!(is_verified_rootfs_image("tispace/ubuntu2004"));
         assert!(is_verified_rootfs_image("tispace/centos7"));
-        assert!(is_verified_rootfs_image("tispace/centos8"));
+        assert!(!is_verified_rootfs_image("tispace/centos8"));
         assert!(!is_verified_rootfs_image("jrei/systemd-ubuntu"));
         assert!(!is_verified_rootfs_image("jrei/systemd-centos"));
     }

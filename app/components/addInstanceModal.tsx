@@ -8,7 +8,6 @@ import { InstanceRequest } from '../lib/service/instanceService'
 
 enum Images {
   Centos7 = 'tispace/centos7',
-  Centos8 = 'tispace/centos8',
   Ubuntu2004 = 'tispace/ubuntu2004',
 }
 
@@ -113,7 +112,6 @@ function AddInstanceModal({
           >
             <Select>
               <Select.Option value={Images.Centos7}>centos7</Select.Option>
-              <Select.Option value={Images.Centos8}>centos8</Select.Option>
               <Select.Option value={Images.Ubuntu2004}>
                 ubuntu2004
               </Select.Option>
