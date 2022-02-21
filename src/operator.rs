@@ -32,24 +32,22 @@ static DEFAULT_RUNTIME_CLASS_NAME: Lazy<String> =
     Lazy::new(|| std::env::var("DEFAULT_RUNTIME_CLASS_NAME").unwrap_or_else(|_| "kata".to_owned()));
 static STORAGE_CLASS_NAME: Lazy<String> =
     Lazy::new(|| std::env::var("STORAGE_CLASS_NAME").unwrap_or_else(|_| "openebs-lvm".to_owned()));
-static DEFAULT_CONTAINER_CAPS: Lazy<Vec<String>> = Lazy::new(|| {
-    vec![
-        "CHOWN".to_owned(),
-        "DAC_OVERRIDE".to_owned(),
-        "FSETID".to_owned(),
-        "FOWNER".to_owned(),
-        "MKNOD".to_owned(),
-        "NET_RAW".to_owned(),
-        "SETGID".to_owned(),
-        "SETUID".to_owned(),
-        "SETFCAP".to_owned(),
-        "SETPCAP".to_owned(),
-        "NET_BIND_SERVICE".to_owned(),
-        "SYS_CHROOT".to_owned(),
-        "KILL".to_owned(),
-        "AUDIT_WRITE".to_owned(),
-    ]
-});
+const DEFAULT_CONTAINER_CAPS: [&str; 14] = [
+    "CHOWN",
+    "DAC_OVERRIDE",
+    "FSETID",
+    "FOWNER",
+    "MKNOD",
+    "NET_RAW",
+    "SETGID",
+    "SETUID",
+    "SETFCAP",
+    "SETPCAP",
+    "NET_BIND_SERVICE",
+    "SYS_CHROOT",
+    "KILL",
+    "AUDIT_WRITE",
+];
 
 fn append_image_tag_if_missing(mut image: String) -> String {
     if !image.contains(':') {
@@ -98,7 +96,12 @@ fn build_security_context(runtime: &str) -> SecurityContext {
         // But leave a least capabilities set to ensure systemd can run properly.
         SecurityContext {
             capabilities: Some(Capabilities {
-                add: Some(DEFAULT_CONTAINER_CAPS.clone()),
+                add: Some(
+                    DEFAULT_CONTAINER_CAPS
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
+                ),
                 ..Default::default()
             }),
             ..Default::default()
