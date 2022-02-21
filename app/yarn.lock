@@ -281,10 +281,10 @@
   resolved "https://registry.yarnpkg.com/@react-spring/types/-/types-9.3.1.tgz#20f392ecad15a1ea6c0865ffe86ca5016c05a278"
   integrity sha512-W/YMJMX35XgGGzX0gKORBTwnvQ+1loDOFN3XlZkW5fgpEY+7VkRUpPyqPWXQr3n6lHrsLmHIGdpznqZi54ACTQ==
 
-"@react-three/drei@^8.8.4":
-  version "8.8.4"
-  resolved "https://registry.yarnpkg.com/@react-three/drei/-/drei-8.8.4.tgz#28f56c17d23265685cd0d4cdb1627ce05a488ef2"
-  integrity sha512-DvptFTpDODbeRbIA6miMEmIQSv7R+MTPliw92NIU/wwg+IvSNTTZSi8DBYR7qDQosAl73Cdj1E9qDfkv7+p5Gg==
+"@react-three/drei@^7.27.5":
+  version "7.27.5"
+  resolved "https://registry.yarnpkg.com/@react-three/drei/-/drei-7.27.5.tgz#8559b8c6e4b1363ee93cfc1d51d936726bf1bb16"
+  integrity sha512-LD0BvN+toHnyn7TV+M50+MbtVIX1PXwHX9RXRa6wgBBDFWBRXNUQb37401+vgzqYV61/JZtxd+b4kM+OYZGpkg==
   dependencies:
     "@babel/runtime" "^7.11.2"
     "@react-spring/three" "^9.3.1"
@@ -296,8 +296,8 @@
     react-composer "^5.0.2"
     react-merge-refs "^1.1.0"
     stats.js "^0.17.0"
-    three-mesh-bvh "^0.5.4"
-    three-stdlib "^2.8.6"
+    three-mesh-bvh "^0.5.2"
+    three-stdlib "^2.6.1"
     troika-three-text "^0.44.0"
     use-asset "^1.0.4"
     utility-types "^3.10.0"
@@ -412,10 +412,10 @@
   resolved "https://registry.yarnpkg.com/@types/scheduler/-/scheduler-0.16.2.tgz#1a62f89525723dde24ba1b01b092bf5df8ad4d39"
   integrity sha512-hppQEBDmlwhFAXKJX2KnWLYu5yMfi91yazPb2l+lbJiwW+wdo1gNeRA+3RgNSO39WYX2euey41KEwnqesU2Jew==
 
-"@types/three@^0.137.0":
-  version "0.137.0"
-  resolved "https://registry.yarnpkg.com/@types/three/-/three-0.137.0.tgz#6047e0658262b4de7c464a40288f9071ddd9a6d5"
-  integrity sha512-Xc5EAlfYmgrCLI/VlSVqiRJAtzhWF0Rw2jSq48nqJy+Hcb5sfDOXyfZn1+RNcHyi9l8CeCAXCZygO8IyeOJVEA==
+"@types/three@0.136.0":
+  version "0.136.0"
+  resolved "https://registry.yarnpkg.com/@types/three/-/three-0.136.0.tgz#6ffd7487563fd3d4f1c794be0ab45f58197f3275"
+  integrity sha512-yNBe5U3B+eSZU+pmiDxeq3hDyF+ftYghFkY3y0ayZrF8SjoUMVIRXqEfJX39wTSDsiY4/+tkmKgNxhhIKbnxeQ==
 
 "@typescript-eslint/eslint-plugin@^5.11.0":
   version "5.11.0"
@@ -3946,15 +3946,15 @@ text-table@^0.2.0:
   resolved "https://registry.yarnpkg.com/text-table/-/text-table-0.2.0.tgz#7f5ee823ae805207c00af2df4a84ec3fcfa570b4"
   integrity sha1-f17oI66AUgfACvLfSoTsP8+lcLQ=
 
-three-mesh-bvh@^0.5.4:
-  version "0.5.4"
-  resolved "https://registry.yarnpkg.com/three-mesh-bvh/-/three-mesh-bvh-0.5.4.tgz#f4c8d751f420c60c35f880393bb00553ce1b298c"
-  integrity sha512-Hq3zpjqBxx2sp/K2Fw7cZ1yEoIVbMc4hOv3VRtmCjHapDKkZpDh8w3OcktbCwn+vBNPt9Ii8D0nDTeqt+73Dwg==
+three-mesh-bvh@^0.5.2:
+  version "0.5.5"
+  resolved "https://registry.yarnpkg.com/three-mesh-bvh/-/three-mesh-bvh-0.5.5.tgz#2d7df2607ac8ea9ef0413eb47eb168d618fa54ab"
+  integrity sha512-WPsEXLfUh+8n2CcWaDnBm4q3c6PbISPbXOBNYt8VLEOTATXP8UqAfEyEBmQU8B9h5FJSSccdXXlHiexO3hZezg==
 
-three-stdlib@^2.8.6:
-  version "2.8.6"
-  resolved "https://registry.yarnpkg.com/three-stdlib/-/three-stdlib-2.8.6.tgz#80aab4ea175acb2f5c32d7488bb26e0a0955be9f"
-  integrity sha512-0emGIVrJG3SGmDyU/mdd4fPOwkXrDCCCwSugHiQBkN5AruAtSTS85Y7zjvexQsQaDYb5RGlJsDefH41nM9uG4Q==
+three-stdlib@^2.6.1:
+  version "2.8.7"
+  resolved "https://registry.yarnpkg.com/three-stdlib/-/three-stdlib-2.8.7.tgz#72372ca0c6d75c4b7bf591f633a42b2a53be8251"
+  integrity sha512-qHqzk0k2zg4zNogTqNmZqyeYoyj1VbcczfAWEJcw5U3jwWaxeOGEDy3AHcIfwK35i3eQVdSz9DxWbPvMyPMPCA==
   dependencies:
     "@babel/runtime" "^7.16.7"
     "@webgpu/glslang" "^0.0.15"
@@ -3967,10 +3967,10 @@ three-stdlib@^2.8.6:
     potpack "^1.0.1"
     zstddec "^0.0.2"
 
-three@^0.137.5:
-  version "0.137.5"
-  resolved "https://registry.yarnpkg.com/three/-/three-0.137.5.tgz#a1e34bedd0412f2d8797112973dfadac78022ce6"
-  integrity sha512-rTyr+HDFxjnN8+N/guZjDgfVxgHptZQpf6xfL/Mo7a5JYIFwK6tAq3bzxYYB4Ae0RosDZlDuP+X5aXDXz+XnHQ==
+three@0.136.0:
+  version "0.136.0"
+  resolved "https://registry.yarnpkg.com/three/-/three-0.136.0.tgz#b1504db021b46398ef468aa7849f3dcabb814f50"
+  integrity sha512-+fEMX7nYLz2ZesVP/dyifli5Jf8gR3XPAnFJveQ80aMhibFduzrADnjMbARXh8+W9qLK7rshJCjAIL/6cDxC+A==
 
 tiny-inflate@^1.0.3:
   version "1.0.3"
