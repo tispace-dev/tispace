@@ -201,6 +201,12 @@ const Home: NextPage = () => {
       title: 'External IP',
       dataIndex: 'external_ip',
       key: 'external_ip',
+      render: (external_ip) => {
+        if (!external_ip) {
+          return <Spin />
+        }
+        return external_ip
+      },
     },
     {
       title: 'Status',
