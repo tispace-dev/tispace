@@ -12,6 +12,11 @@ enum Images {
   Ubuntu2004 = 'tispace/ubuntu2004',
 }
 
+enum Runtimes {
+  Kata = 'kata',
+  Runc = 'runc',
+}
+
 const layout = {
   labelCol: { span: 4 },
   wrapperCol: { span: 18 },
@@ -161,6 +166,21 @@ function AddInstanceModal({
               addonBefore={<ImFloppyDisk />}
               addonAfter="GiB"
             />
+          </Form.Item>
+          <Form.Item
+            name="runtime"
+            label="Runtime"
+            rules={[
+              {
+                required: true,
+                message: 'Please select an runtime!',
+              },
+            ]}
+          >
+            <Select>
+              <Select.Option value={Runtimes.Kata}>kata</Select.Option>
+              <Select.Option value={Runtimes.Runc}>runc</Select.Option>
+            </Select>
           </Form.Item>
         </Form>
       </Modal>
