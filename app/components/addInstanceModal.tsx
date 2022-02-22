@@ -84,6 +84,7 @@ function AddInstanceModal({
             memory: 16,
             disk_size: 80,
             image: Images.Centos7,
+            runtime: Runtimes.Kata,
           }}
         >
           <Form.Item
@@ -171,7 +172,7 @@ function AddInstanceModal({
             rules={[
               {
                 required: true,
-                message: 'Please select an runtime!',
+                message: 'Please select a runtime!',
               },
             ]}
           >
