@@ -209,6 +209,11 @@ const Home: NextPage = () => {
       },
     },
     {
+      title: 'Runtime',
+      dataIndex: 'runtime',
+      key: 'runtime',
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
