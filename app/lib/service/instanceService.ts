@@ -18,3 +18,11 @@ export async function createInstance(instance: InstanceRequest) {
 export async function deleteInstance(instanceName: string) {
   return await service.delete(`/instances/${instanceName}`)
 }
+
+export async function stopInstance(instanceName: string) {
+  return await service.post(`/instances/${instanceName}/stop`)
+}
+
+export async function startInstance(instanceName: string) {
+  return await service.post(`/instances/${instanceName}/start`)
+}

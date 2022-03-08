@@ -14,6 +14,8 @@ import {
   deleteInstance,
   InstanceRequest,
   listInstances,
+  startInstance,
+  stopInstance,
 } from '../lib/service/instanceService'
 import AddInstanceModal from '../components/addInstanceModal'
 import styles from '../styles/index.module.less'
@@ -91,6 +93,32 @@ const Home: NextPage = () => {
     })()
   }
 
+  const handleStop = (instanceName: string) => {
+    ;(async () => {
+      try {
+        await stopInstance(instanceName)
+        message.success('Stop instance success')
+        await listAllInstance()
+      } catch (e) {
+        console.log(e)
+        message.error('Stop instance failed')
+      }
+    })()
+  }
+
+  const handleStart = (instanceName: string) => {
+    ;(async () => {
+      try {
+        await startInstance(instanceName)
+        message.success('Start instance success')
+        await listAllInstance()
+      } catch (e) {
+        console.log(e)
+        message.error('Start instance failed')
+      }
+    })()
+  }
+
   const getStatusTag = (status: string) => {
     switch (status) {
       case InstanceStatus.Starting: {
@@ -108,6 +136,51 @@ const Home: NextPage = () => {
       case InstanceStatus.Deleting: {
         return <Tag color="red">{status}</Tag>
       }
+    }
+  }
+
+  const getOperation = (record: Instance) => {
+    if (record.status === InstanceStatus.Running) {
+      return (
+        <div className={styles.operation}>
+          <Popconfirm
+            title="Are you sure to delete this instance?"
+            onConfirm={() => {
+              handleDelete(record.name)
+            }}
+            okText="Yes"
+            cancelText="No"
+          >
+            <a href="#">Delete</a>
+          </Popconfirm>
+          /
+          <Popconfirm
+            title="Are you sure to stop this instance?"
+            onConfirm={() => {
+              handleStop(record.name)
+            }}
+            okText="Yes"
+            cancelText="No"
+          >
+            <a href="#">Stop</a>
+          </Popconfirm>
+        </div>
+      )
+    } else if (record.status === InstanceStatus.Stopped) {
+      return (
+        <Popconfirm
+          title="Are you sure to start this instance?"
+          onConfirm={() => {
+            handleStart(record.name)
+          }}
+          okText="Yes"
+          cancelText="No"
+        >
+          <a href="#">Start</a>
+        </Popconfirm>
+      )
+    } else {
+      return <StopOutlined />
     }
   }
 
@@ -222,21 +295,9 @@ const Home: NextPage = () => {
     {
       title: 'Operation',
       dataIndex: 'operation',
-      render: (_, record: Instance) =>
-        record.status === InstanceStatus.Running ? (
-          <Popconfirm
-            title="Are you sure to delete this instance?"
-            onConfirm={() => {
-              handleDelete(record.name)
-            }}
-            okText="Yes"
-            cancelText="No"
-          >
-            <a href="#">Delete</a>
-          </Popconfirm>
-        ) : (
-          <StopOutlined />
-        ),
+      render: (_, record: Instance) => {
+        return getOperation(record)
+      },
     },
   ]
 
