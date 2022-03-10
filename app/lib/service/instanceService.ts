@@ -1,13 +1,15 @@
 import service from './index'
 
-export type InstanceRequest = {
+export type CreateInstanceRequest = {
   name: string
   cpu: number
   memory: number
   disk_size: number
+  image?: string
+  runtime?: string
 }
 
-export type UpdateRequest = {
+export type UpdateInstanceRequest = {
   cpu: number
   memory: number
   runtime: string
@@ -41,7 +43,7 @@ export async function listInstances() {
   return await service.get('/instances')
 }
 
-export async function createInstance(instance: InstanceRequest) {
+export async function createInstance(instance: CreateInstanceRequest) {
   return await service.post('/instances', instance)
 }
 
@@ -59,7 +61,7 @@ export async function startInstance(instanceName: string) {
 
 export async function updateInstance(
   instanceName: string,
-  request: UpdateRequest
+  request: UpdateInstanceRequest
 ) {
   return await service.patch(`/instances/${instanceName}`, request)
 }

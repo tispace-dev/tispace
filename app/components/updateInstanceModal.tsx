@@ -3,14 +3,14 @@ import { Form, InputNumber, Modal, Select } from 'antd'
 import { FaMemory } from 'react-icons/fa'
 import { BsFillCpuFill } from 'react-icons/bs'
 
-import { Instance, UpdateRequest } from '../lib/service/instanceService'
+import { Instance, UpdateInstanceRequest } from '../lib/service/instanceService'
 import { modalFormLayout, useResetFormOnCloseModal } from './modal'
 import { Runtimes } from './instance'
 
 interface UpdateInstanceModalProps {
   visible: boolean
   instance: Instance
-  onUpdate: (instanceName: string, request: UpdateRequest) => Promise<void>
+  onUpdate: (instanceName: string, request: UpdateInstanceRequest) => Promise<void>
   onCancel: () => void
 }
 

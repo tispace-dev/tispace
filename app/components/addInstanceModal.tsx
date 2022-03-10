@@ -6,11 +6,11 @@ import { BsFillCpuFill } from 'react-icons/bs'
 
 import { Images, instanceNameRegex, Runtimes } from './instance'
 import { modalFormLayout, useResetFormOnCloseModal } from './modal'
-import { InstanceRequest } from '../lib/service/instanceService'
+import { CreateInstanceRequest } from '../lib/service/instanceService'
 
 interface AddInstanceModalProps {
   visible: boolean
-  onCreate: (instance: InstanceRequest) => Promise<void>
+  onCreate: (instance: CreateInstanceRequest) => Promise<void>
   onCancel: () => void
 }
 

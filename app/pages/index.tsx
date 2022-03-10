@@ -13,13 +13,13 @@ import {
   createInstance,
   deleteInstance,
   Instance,
-  InstanceRequest,
+  CreateInstanceRequest,
   InstanceStatus,
   listInstances,
   startInstance,
   stopInstance,
   updateInstance,
-  UpdateRequest,
+  UpdateInstanceRequest,
 } from '../lib/service/instanceService'
 import AddInstanceModal from '../components/addInstanceModal'
 import styles from '../styles/index.module.less'
@@ -60,7 +60,7 @@ const Home: NextPage = () => {
     setUpdateInstanceModalVisible(false)
   }
 
-  const handleCreate = async (instance: InstanceRequest) => {
+  const handleCreate = async (instance: CreateInstanceRequest) => {
     try {
       await createInstance(instance)
       message.success('Create instance success')
@@ -111,7 +111,7 @@ const Home: NextPage = () => {
     })()
   }
 
-  const handleUpdate = async (instanceName: string, request: UpdateRequest) => {
+  const handleUpdate = async (instanceName: string, request: UpdateInstanceRequest) => {
     try {
       await updateInstance(instanceName, request)
       message.success('Update instance success')
