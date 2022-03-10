@@ -12,42 +12,26 @@ import Layout from '../components/layout'
 import {
   createInstance,
   deleteInstance,
+  Instance,
   InstanceRequest,
+  InstanceStatus,
   listInstances,
   startInstance,
   stopInstance,
+  updateInstance,
+  UpdateRequest,
 } from '../lib/service/instanceService'
 import AddInstanceModal from '../components/addInstanceModal'
 import styles from '../styles/index.module.less'
-
-type Instance = {
-  name: string
-  cpu: number
-  memory: number
-  disk_size: number
-  status: string
-  // Deprecated: use external_ip instead.
-  ssh_host: string
-  // Deprecated: use 22 instead.
-  ssh_port: number
-  password: string
-  image: string
-  external_ip: string
-}
-
-enum InstanceStatus {
-  Starting = 'Starting',
-  Running = 'Running',
-  Stopping = 'Stopping',
-  Stopped = 'Stopped',
-  Deleting = 'Deleting',
-}
+import UpdateInstanceModal from '../components/updateInstanceModal'
 
 const Home: NextPage = () => {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [instances, setInstances] = useState([])
-  const [visible, setVisible] = useState(false)
+  const [addInstanceModalVisible, setAddInstanceModalVisible] = useState(false)
+  const [updateInstanceModalVisible, setUpdateInstanceModalVisible] =
+    useState(false)
 
   const listAllInstance = async () => {
     try {
@@ -60,12 +44,20 @@ const Home: NextPage = () => {
     }
   }
 
-  const handleOpen = () => {
-    setVisible(true)
+  const handleAddInstanceOpen = () => {
+    setAddInstanceModalVisible(true)
   }
 
-  const handleCancel = () => {
-    setVisible(false)
+  const handleAddInstanceCancel = () => {
+    setAddInstanceModalVisible(false)
+  }
+
+  const handleUpdateInstanceOpen = () => {
+    setUpdateInstanceModalVisible(true)
+  }
+
+  const handleUpdateInstanceCancel = () => {
+    setUpdateInstanceModalVisible(false)
   }
 
   const handleCreate = async (instance: InstanceRequest) => {
@@ -73,7 +65,7 @@ const Home: NextPage = () => {
       await createInstance(instance)
       message.success('Create instance success')
       await listAllInstance()
-      setVisible(false)
+      setAddInstanceModalVisible(false)
     } catch (e) {
       console.log(e)
       message.error('Create instance failed')
@@ -117,6 +109,18 @@ const Home: NextPage = () => {
         message.error('Start instance failed')
       }
     })()
+  }
+
+  const handleUpdate = async (instanceName: string, request: UpdateRequest) => {
+    try {
+      await updateInstance(instanceName, request)
+      message.success('Update instance success')
+      await listAllInstance()
+      setUpdateInstanceModalVisible(false)
+    } catch (e) {
+      console.log(e)
+      message.error('Update instance failed')
+    }
   }
 
   const getStatusTag = (status: string) => {
@@ -168,16 +172,28 @@ const Home: NextPage = () => {
       )
     } else if (record.status === InstanceStatus.Stopped) {
       return (
-        <Popconfirm
-          title="Are you sure to start this instance?"
-          onConfirm={() => {
-            handleStart(record.name)
-          }}
-          okText="Yes"
-          cancelText="No"
-        >
-          <a href="#">Start</a>
-        </Popconfirm>
+        <div className={styles.operation}>
+          <UpdateInstanceModal
+            visible={updateInstanceModalVisible}
+            onUpdate={handleUpdate}
+            instance={record}
+            onCancel={handleUpdateInstanceCancel}
+          />
+          <Popconfirm
+            title="Are you sure to start this instance?"
+            onConfirm={() => {
+              handleStart(record.name)
+            }}
+            okText="Yes"
+            cancelText="No"
+          >
+            <a href="#">Start</a>
+          </Popconfirm>
+          /
+          <a href="#" onClick={handleUpdateInstanceOpen}>
+            Update
+          </a>
+        </div>
       )
     } else {
       return <StopOutlined />
@@ -328,14 +344,14 @@ const Home: NextPage = () => {
         shape="round"
         size={'large'}
         icon={<PlusOutlined />}
-        onClick={handleOpen}
+        onClick={handleAddInstanceOpen}
       >
         New instance
       </Button>
       <AddInstanceModal
-        visible={visible}
+        visible={addInstanceModalVisible}
         onCreate={handleCreate}
-        onCancel={handleCancel}
+        onCancel={handleAddInstanceCancel}
       />
       <Table
         dataSource={instances}

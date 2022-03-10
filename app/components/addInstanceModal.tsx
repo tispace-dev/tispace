@@ -1,53 +1,17 @@
-import React, { useEffect, useRef } from 'react'
-import { Form, Input, InputNumber, Modal, FormInstance, Select } from 'antd'
+import React from 'react'
+import { Form, Input, InputNumber, Modal, Select } from 'antd'
 import { FaMemory } from 'react-icons/fa'
 import { ImFloppyDisk } from 'react-icons/im'
 import { BsFillCpuFill } from 'react-icons/bs'
 
+import { Images, instanceNameRegex, Runtimes } from './instance'
+import { modalFormLayout, useResetFormOnCloseModal } from './modal'
 import { InstanceRequest } from '../lib/service/instanceService'
-
-enum Images {
-  Centos7 = 'tispace/centos7',
-  Ubuntu2004 = 'tispace/ubuntu2004',
-}
-
-enum Runtimes {
-  Kata = 'kata',
-  Runc = 'runc',
-}
-
-const layout = {
-  labelCol: { span: 4 },
-  wrapperCol: { span: 18 },
-}
-
-// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-const instanceNameRegex = /^(?![0-9]+$)(?!.*-$)(?!-)[a-z0-9-]{1,63}$/g
 
 interface AddInstanceModalProps {
   visible: boolean
   onCreate: (instance: InstanceRequest) => Promise<void>
   onCancel: () => void
-}
-
-const useResetFormOnCloseModal = ({
-  form,
-  visible,
-}: {
-  form: FormInstance
-  visible: boolean
-}) => {
-  const prevVisibleRef = useRef<boolean>()
-  useEffect(() => {
-    prevVisibleRef.current = visible
-  }, [visible])
-  const prevVisible = prevVisibleRef.current
-
-  useEffect(() => {
-    if (!visible && prevVisible) {
-      form.resetFields()
-    }
-  }, [form, prevVisible, visible])
 }
 
 function AddInstanceModal({
@@ -76,7 +40,7 @@ function AddInstanceModal({
         onCancel={onCancel}
       >
         <Form
-          {...layout}
+          {...modalFormLayout}
           form={form}
           name="add-instance"
           initialValues={{
