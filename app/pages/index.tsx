@@ -20,6 +20,7 @@ import {
   stopInstance,
   updateInstance,
   UpdateInstanceRequest,
+  isRunnable,
 } from '../lib/service/instanceService'
 import AddInstanceModal from '../components/addInstanceModal'
 import styles from '../styles/index.module.less'
@@ -250,11 +251,7 @@ const Home: NextPage = () => {
       dataIndex: 'external_ip',
       key: 'external_ip',
       render: (_, record: Instance) => {
-        if (
-          record.status !== InstanceStatus.Stopping &&
-          record.status !== InstanceStatus.Stopped &&
-          record.status !== InstanceStatus.Deleting
-        ) {
+        if (isRunnable(record.status)) {
           if (!record.external_ip) {
             return <Spin />
           } else {
@@ -285,11 +282,7 @@ const Home: NextPage = () => {
       dataIndex: 'password',
       key: 'password',
       render: (password, record) => {
-        if (
-          record.status !== InstanceStatus.Stopping &&
-          record.status !== InstanceStatus.Stopped &&
-          record.status !== InstanceStatus.Deleting
-        ) {
+        if (isRunnable(record.status)) {
           if (record.status === InstanceStatus.Starting) {
             return <Spin />
           } else {
@@ -324,11 +317,7 @@ const Home: NextPage = () => {
       dataIndex: 'external_ip',
       key: 'external_ip',
       render: (_, record) => {
-        if (
-          record.status !== InstanceStatus.Stopping &&
-          record.status !== InstanceStatus.Stopped &&
-          record.status !== InstanceStatus.Deleting
-        ) {
+        if (isRunnable(record.status)) {
           if (!record.external_ip) {
             return <Spin />
           } else {

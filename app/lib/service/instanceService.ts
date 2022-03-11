@@ -39,6 +39,14 @@ export enum InstanceStatus {
   Deleting = 'Deleting',
 }
 
+export const isRunnable = (status: string) => {
+  return (
+    status !== InstanceStatus.Stopping &&
+    status !== InstanceStatus.Stopped &&
+    status !== InstanceStatus.Deleting
+  )
+}
+
 export async function listInstances() {
   return await service.get('/instances')
 }
