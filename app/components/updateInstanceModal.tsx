@@ -10,7 +10,10 @@ import { Runtimes } from './instance'
 interface UpdateInstanceModalProps {
   visible: boolean
   instance: Instance
-  onUpdate: (instanceName: string, request: UpdateInstanceRequest) => Promise<void>
+  onUpdate: (
+    instanceName: string,
+    request: UpdateInstanceRequest
+  ) => Promise<void>
   onCancel: () => void
 }
 
