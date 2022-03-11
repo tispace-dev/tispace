@@ -286,12 +286,10 @@ const Home: NextPage = () => {
       key: 'password',
       render: (password, record) => {
         if (
-          record.status === InstanceStatus.Stopping ||
-          record.status === InstanceStatus.Stopped ||
-          record.status === InstanceStatus.Deleting
+          record.status !== InstanceStatus.Stopping &&
+          record.status !== InstanceStatus.Stopped &&
+          record.status !== InstanceStatus.Deleting
         ) {
-          return '-'
-        } else {
           if (record.status === InstanceStatus.Starting) {
             return <Spin />
           } else {
@@ -316,6 +314,8 @@ const Home: NextPage = () => {
               </>
             )
           }
+        } else {
+          return '-'
         }
       },
     },
