@@ -29,6 +29,7 @@ const Home: NextPage = () => {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [instances, setInstances] = useState([])
+  const [tableVisible, setTableVisible] = useState(true)
   const [addInstanceModalVisible, setAddInstanceModalVisible] = useState(false)
   const [updateInstanceModalVisible, setUpdateInstanceModalVisible] =
     useState(false)
@@ -111,7 +112,10 @@ const Home: NextPage = () => {
     })()
   }
 
-  const handleUpdate = async (instanceName: string, request: UpdateInstanceRequest) => {
+  const handleUpdate = async (
+    instanceName: string,
+    request: UpdateInstanceRequest
+  ) => {
     try {
       await updateInstance(instanceName, request)
       message.success('Update instance success')
@@ -246,55 +250,93 @@ const Home: NextPage = () => {
       dataIndex: 'external_ip',
       key: 'external_ip',
       render: (_, record: Instance) => {
-        if (!record.external_ip) {
-          return <Spin />
+        if (
+          record.status !== InstanceStatus.Stopping &&
+          record.status !== InstanceStatus.Stopped &&
+          record.status !== InstanceStatus.Deleting
+        ) {
+          if (!record.external_ip) {
+            return <Spin />
+          } else {
+            const sshCommand = `ssh root@${record.external_ip}`
+            return (
+              <div className={styles.ssh}>
+                <span className={styles.command}>{sshCommand}</span>
+                <CopyToClipboard
+                  text={sshCommand}
+                  onCopy={() => message.success('Command copied!')}
+                >
+                  <Button
+                    type="dashed"
+                    shape="circle"
+                    icon={<CopyOutlined />}
+                  />
+                </CopyToClipboard>
+              </div>
+            )
+          }
+        } else {
+          return '-'
         }
-        const sshCommand = `ssh root@${record.external_ip}`
-        return (
-          <div className={styles.ssh}>
-            <span className={styles.command}>{sshCommand}</span>
-            <CopyToClipboard
-              text={sshCommand}
-              onCopy={() => message.success('Command copied!')}
-            >
-              <Button type="dashed" shape="circle" icon={<CopyOutlined />} />
-            </CopyToClipboard>
-          </div>
-        )
       },
     },
     {
       title: 'SSH Initialization Password',
       dataIndex: 'password',
       key: 'password',
-      render: (password) => {
-        return (
-          <>
-            <Input.Password
-              className={styles.password}
-              bordered={false}
-              value={password}
-              visibilityToggle={false}
-            />
-            <CopyToClipboard
-              text={password}
-              onCopy={() => message.success('Password copied!')}
-            >
-              <Button type="dashed" shape="circle" icon={<CopyOutlined />} />
-            </CopyToClipboard>
-          </>
-        )
+      render: (password, record) => {
+        if (
+          record.status === InstanceStatus.Stopping ||
+          record.status === InstanceStatus.Stopped ||
+          record.status === InstanceStatus.Deleting
+        ) {
+          return '-'
+        } else {
+          if (record.status === InstanceStatus.Starting) {
+            return <Spin />
+          } else {
+            return (
+              <>
+                <Input.Password
+                  className={styles.password}
+                  bordered={false}
+                  value={password}
+                  visibilityToggle={false}
+                />
+                <CopyToClipboard
+                  text={password}
+                  onCopy={() => message.success('Password copied!')}
+                >
+                  <Button
+                    type="dashed"
+                    shape="circle"
+                    icon={<CopyOutlined />}
+                  />
+                </CopyToClipboard>
+              </>
+            )
+          }
+        }
       },
     },
     {
       title: 'External IP',
       dataIndex: 'external_ip',
       key: 'external_ip',
-      render: (external_ip) => {
-        if (!external_ip) {
-          return <Spin />
+      render: (_, record) => {
+        if (
+          record.status !== InstanceStatus.Stopping &&
+          record.status !== InstanceStatus.Stopped &&
+          record.status !== InstanceStatus.Deleting
+        ) {
+          if (!record.external_ip) {
+            return <Spin />
+          } else {
+            return record.external_ip
+          }
+        } else {
+          return '-'
         }
-        return external_ip
       },
     },
     {
@@ -328,6 +370,7 @@ const Home: NextPage = () => {
         await router.push('/login')
       } else {
         await listAllInstance()
+        setTableVisible(false)
       }
     })()
   }, [session, status, router])
@@ -354,6 +397,7 @@ const Home: NextPage = () => {
         onCancel={handleAddInstanceCancel}
       />
       <Table
+        loading={tableVisible}
         dataSource={instances}
         columns={columns}
         rowKey="name"
