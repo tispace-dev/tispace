@@ -32,6 +32,7 @@ const Home: NextPage = () => {
   const [instances, setInstances] = useState([])
   const [tableVisible, setTableVisible] = useState(true)
   const [addInstanceModalVisible, setAddInstanceModalVisible] = useState(false)
+  const [record, setRecord] = useState({} as Instance)
   const [updateInstanceModalVisible, setUpdateInstanceModalVisible] =
     useState(false)
 
@@ -178,12 +179,6 @@ const Home: NextPage = () => {
     } else if (record.status === InstanceStatus.Stopped) {
       return (
         <div className={styles.operation}>
-          <UpdateInstanceModal
-            visible={updateInstanceModalVisible}
-            onUpdate={handleUpdate}
-            instance={record}
-            onCancel={handleUpdateInstanceCancel}
-          />
           <Popconfirm
             title="Are you sure to start this instance?"
             onConfirm={() => {
@@ -195,7 +190,13 @@ const Home: NextPage = () => {
             <a href="#">Start</a>
           </Popconfirm>
           /
-          <a href="#" onClick={handleUpdateInstanceOpen}>
+          <a
+            href="#"
+            onClick={() => {
+              setRecord(record)
+              handleUpdateInstanceOpen()
+            }}
+          >
             Update
           </a>
         </div>
@@ -341,7 +342,8 @@ const Home: NextPage = () => {
     },
     {
       title: 'Operation',
-      dataIndex: 'operation',
+      dataIndex: 'name',
+      key: 'name',
       render: (_, record: Instance) => {
         return getOperation(record)
       },
@@ -392,6 +394,12 @@ const Home: NextPage = () => {
         rowKey="name"
         bordered
         scroll={{ x: 1300 }}
+      />
+      <UpdateInstanceModal
+        visible={updateInstanceModalVisible}
+        onUpdate={handleUpdate}
+        instance={record}
+        onCancel={handleUpdateInstanceCancel}
       />
     </Layout>
   )
