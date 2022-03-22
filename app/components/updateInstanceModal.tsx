@@ -1,10 +1,10 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Form, InputNumber, Modal, Select } from 'antd'
 import { FaMemory } from 'react-icons/fa'
 import { BsFillCpuFill } from 'react-icons/bs'
 
 import { Instance, UpdateInstanceRequest } from '../lib/service/instanceService'
-import { modalFormLayout, useResetFormOnCloseModal } from './modal'
+import { modalFormLayout } from './modal'
 import { Runtimes } from './instance'
 
 interface UpdateInstanceModalProps {
@@ -25,10 +25,9 @@ function UpdateInstanceModal({
 }: UpdateInstanceModalProps) {
   const [form] = Form.useForm()
 
-  useResetFormOnCloseModal({
-    form,
-    visible,
-  })
+  useEffect(() => {
+    form.resetFields()
+  }, [form, instance])
 
   const handleOk = async () => {
     const request = await form.validateFields()
