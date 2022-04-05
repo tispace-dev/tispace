@@ -176,6 +176,21 @@ const Home: NextPage = () => {
           </Popconfirm>
         </div>
       )
+    } else if (record.status === InstanceStatus.Starting) {
+      return (
+        <div className={styles.operation}>
+          <Popconfirm
+            title="Are you sure to delete this instance?"
+            onConfirm={() => {
+              handleDelete(record.name)
+            }}
+            okText="Yes"
+            cancelText="No"
+          >
+            <a href="#">Delete</a>
+          </Popconfirm>
+        </div>
+      )
     } else if (record.status === InstanceStatus.Stopped) {
       return (
         <div className={styles.operation}>

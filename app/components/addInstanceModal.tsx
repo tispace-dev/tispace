@@ -124,7 +124,7 @@ function AddInstanceModal({
             ]}
           >
             <InputNumber
-              min={60}
+              min={10}
               max={500}
               addonBefore={<ImFloppyDisk />}
               addonAfter="GiB"
