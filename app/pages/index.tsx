@@ -150,20 +150,24 @@ const Home: NextPage = () => {
   }
 
   const getOperation = (record: Instance) => {
+    const deleteInstancePopconfirm = () => {
+      return (
+        <Popconfirm
+          title="Are you sure to delete this instance?"
+          onConfirm={() => {
+            handleDelete(record.name)
+          }}
+          okText="Yes"
+          cancelText="No"
+        >
+          <a href="#">Delete</a>
+        </Popconfirm>
+      )
+    }
     if (record.status === InstanceStatus.Running) {
       return (
         <div className={styles.operation}>
-          <Popconfirm
-            title="Are you sure to delete this instance?"
-            onConfirm={() => {
-              handleDelete(record.name)
-            }}
-            okText="Yes"
-            cancelText="No"
-          >
-            <a href="#">Delete</a>
-          </Popconfirm>
-          /
+          {deleteInstancePopconfirm()}/
           <Popconfirm
             title="Are you sure to stop this instance?"
             onConfirm={() => {
@@ -175,6 +179,10 @@ const Home: NextPage = () => {
             <a href="#">Stop</a>
           </Popconfirm>
         </div>
+      )
+    } else if (record.status === InstanceStatus.Starting) {
+      return (
+        <div className={styles.operation}>{deleteInstancePopconfirm()}</div>
       )
     } else if (record.status === InstanceStatus.Stopped) {
       return (
