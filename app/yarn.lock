@@ -4004,10 +4004,10 @@ three-stdlib@^2.6.1:
     potpack "^1.0.1"
     zstddec "^0.0.2"
 
-three@0.136.0:
-  version "0.136.0"
-  resolved "https://registry.yarnpkg.com/three/-/three-0.136.0.tgz#b1504db021b46398ef468aa7849f3dcabb814f50"
-  integrity sha512-+fEMX7nYLz2ZesVP/dyifli5Jf8gR3XPAnFJveQ80aMhibFduzrADnjMbARXh8+W9qLK7rshJCjAIL/6cDxC+A==
+three@0.140.0:
+  version "0.140.0"
+  resolved "https://registry.yarnpkg.com/three/-/three-0.140.0.tgz#5ad85df954c63015337a846134e0daa6c7c0dead"
+  integrity sha512-jcHjbnYspPLDdsDQChmzyAoZ5KhJbgFk6pNGlAIc9fQMvsfPGjF5H9glrngqvb2CR/qXcClMyp5PYdF996lldA==
 
 tiny-inflate@^1.0.3:
   version "1.0.3"
