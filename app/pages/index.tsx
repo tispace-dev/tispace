@@ -257,14 +257,14 @@ const Home: NextPage = () => {
     },
     {
       title: 'SSH Command',
-      dataIndex: 'external_ip',
-      key: 'external_ip',
+      dataIndex: 'ssh_host',
+      key: 'ssh_host',
       render: (_, record: Instance) => {
         if (isRunnable(record.status)) {
-          if (!record.external_ip) {
+          if (!record.ssh_host || !record.ssh_port) {
             return <Spin />
           } else {
-            const sshCommand = `ssh root@${record.external_ip}`
+            const sshCommand = `ssh root@${record.ssh_host} -p ${record.ssh_port}`
             return (
               <div className={styles.ssh}>
                 <span className={styles.command}>{sshCommand}</span>
@@ -315,22 +315,6 @@ const Home: NextPage = () => {
                 </CopyToClipboard>
               </>
             )
-          }
-        } else {
-          return '-'
-        }
-      },
-    },
-    {
-      title: 'External IP',
-      dataIndex: 'external_ip',
-      key: 'external_ip',
-      render: (_, record) => {
-        if (isRunnable(record.status)) {
-          if (!record.external_ip) {
-            return <Spin />
-          } else {
-            return record.external_ip
           }
         } else {
           return '-'
