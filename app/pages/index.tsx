@@ -76,7 +76,7 @@ const Home: NextPage = () => {
   }
 
   const handleDelete = (instanceName: string) => {
-    ; (async () => {
+    ;(async () => {
       try {
         await deleteInstance(instanceName)
         message.success('Delete instance success')
@@ -89,7 +89,7 @@ const Home: NextPage = () => {
   }
 
   const handleStop = (instanceName: string) => {
-    ; (async () => {
+    ;(async () => {
       try {
         await stopInstance(instanceName)
         message.success('Stop instance success')
@@ -102,7 +102,7 @@ const Home: NextPage = () => {
   }
 
   const handleStart = (instanceName: string) => {
-    ; (async () => {
+    ;(async () => {
       try {
         await startInstance(instanceName)
         message.success('Start instance success')
@@ -343,7 +343,7 @@ const Home: NextPage = () => {
   ]
 
   useEffect(() => {
-    ; (async () => {
+    ;(async () => {
       if (status === 'loading') {
         return
       }
