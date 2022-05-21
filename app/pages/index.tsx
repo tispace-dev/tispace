@@ -76,7 +76,7 @@ const Home: NextPage = () => {
   }
 
   const handleDelete = (instanceName: string) => {
-    ;(async () => {
+    ; (async () => {
       try {
         await deleteInstance(instanceName)
         message.success('Delete instance success')
@@ -89,7 +89,7 @@ const Home: NextPage = () => {
   }
 
   const handleStop = (instanceName: string) => {
-    ;(async () => {
+    ; (async () => {
       try {
         await stopInstance(instanceName)
         message.success('Stop instance success')
@@ -102,7 +102,7 @@ const Home: NextPage = () => {
   }
 
   const handleStart = (instanceName: string) => {
-    ;(async () => {
+    ; (async () => {
       try {
         await startInstance(instanceName)
         message.success('Start instance success')
@@ -257,14 +257,14 @@ const Home: NextPage = () => {
     },
     {
       title: 'SSH Command',
-      dataIndex: 'external_ip',
-      key: 'external_ip',
+      dataIndex: 'ssh_host',
+      key: 'ssh_host',
       render: (_, record: Instance) => {
         if (isRunnable(record.status)) {
-          if (!record.external_ip) {
+          if (!record.ssh_host || !record.ssh_port) {
             return <Spin />
           } else {
-            const sshCommand = `ssh root@${record.external_ip}`
+            const sshCommand = `ssh root@${record.ssh_host} -p ${record.ssh_port}`
             return (
               <div className={styles.ssh}>
                 <span className={styles.command}>{sshCommand}</span>
@@ -322,22 +322,6 @@ const Home: NextPage = () => {
       },
     },
     {
-      title: 'External IP',
-      dataIndex: 'external_ip',
-      key: 'external_ip',
-      render: (_, record) => {
-        if (isRunnable(record.status)) {
-          if (!record.external_ip) {
-            return <Spin />
-          } else {
-            return record.external_ip
-          }
-        } else {
-          return '-'
-        }
-      },
-    },
-    {
       title: 'Runtime',
       dataIndex: 'runtime',
       key: 'runtime',
@@ -359,7 +343,7 @@ const Home: NextPage = () => {
   ]
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       if (status === 'loading') {
         return
       }
