@@ -41,6 +41,7 @@ async fn main() {
                 .allow_origin(Origin::list([
                     "http://localhost:3000".parse().unwrap(),
                     "http://tispace.herokuapp.com".parse().unwrap(),
+                    "https://tispace.dev".parse().unwrap(),
                 ]))
                 .allow_methods(any())
                 .allow_headers(any()),
