@@ -11,16 +11,6 @@ const port = process.env.PORT || 3000
 app.prepare().then(() => {
   createServer((req, res) => {
     const { url } = req
-    const { protocol, host } = absoluteUrl(req)
-
-    if (protocol === 'https:') {
-      res.writeHead(301, {
-        Location: `http://${host}${url}`,
-      })
-      res.end()
-      return
-    }
-
     const parsedUrl = parse(url!, true)
     return handle(req, res, parsedUrl)
   })
