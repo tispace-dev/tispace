@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend
+  namespace: tispace
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: openebs-lvm
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backend
+  namespace: tispace
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: backend
+  namespace: tispace
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - "pods"
+      - "services"
+      - "persistentvolumeclaims"
+    verbs:
+      - "get"
+      - "watch"
+      - "list"
+      - "create"
+      - "delete"
+      - "update"
+      - "patch"
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: backend
+  namespace: tispace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backend
+subjects:
+  - kind: ServiceAccount
+    name: backend
+    namespace: tispace
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: tispace
+  name: backend-env
+data:
+  default-rootfs-image-tag: latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: tispace
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      serviceAccountName: backend
+      containers:
+      - name: backend
+        image: tispace/backend:latest
+        imagePullPolicy: IfNotPresent
+        workingDir: /workdir
+        ports:
+        - containerPort: 8080
+        env:
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: google-client
+              key: google-client-id
+        - name: DEFAULT_ROOTFS_IMAGE_TAG
+          valueFrom:
+            configMapKeyRef:
+              name: backend-env
+              key: default-rootfs-image-tag
+        volumeMounts:
+        - name: workdir
+          mountPath: /workdir
+      volumes:
+      - name: workdir
+        persistentVolumeClaim:
+          claimName: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: tispace
+  labels:
+    app: backend
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: backend
+  type: ClusterIP
