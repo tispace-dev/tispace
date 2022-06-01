@@ -110,7 +110,7 @@ function AddInstanceModal({
             ]}
           >
             <InputNumber
-              min={8}
+              min={1}
               max={64}
               addonBefore={<FaMemory />}
               addonAfter="GiB"
