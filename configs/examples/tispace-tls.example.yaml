@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tispace-tls
+  namespace: tispace
+data:
+  tls.crt: <<insert tls.crt here>>
+  tls.key: <<insert tls.key here>>
+type: kubernetes.io/tls

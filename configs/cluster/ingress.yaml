@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: default
+  namespace: tispace
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - tispace.dev
+    - api.tispace.dev
+    secretName: tispace-tls
+  rules:
+  - host: "tispace.dev"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+  - host: "api.tispace.dev"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 80

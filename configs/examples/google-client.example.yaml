@@ -2,6 +2,9 @@ apiVersion: v1
 kind: Secret
 metadata:
   namespace: tispace
-  name: google-client-id
+  name: google-client
 stringData:
   google-client-id: << insert google client id here >>
+  google-client-secret: << insert google client secret here >>
+  secret: << insert secret here >>
+
