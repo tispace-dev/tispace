@@ -23,13 +23,6 @@ const NAMESPACE: &str = "tispace";
 const FAKE_IMAGE: &str = "k8s.gcr.io/pause:3.5";
 const PASSWORD_ENV_KEY: &str = "PASSWORD";
 
-static DEFAULT_ROOTFS_IMAGE: Lazy<String> = Lazy::new(|| {
-    std::env::var("DEFAULT_ROOTFS_IMAGE").unwrap_or_else(|_| "tispace/centos7".to_owned())
-});
-static DEFAULT_ROOTFS_IMAGE_TAG: Lazy<String> =
-    Lazy::new(|| std::env::var("DEFAULT_ROOTFS_IMAGE_TAG").unwrap_or_else(|_| "latest".to_owned()));
-static DEFAULT_RUNTIME_CLASS_NAME: Lazy<String> =
-    Lazy::new(|| std::env::var("DEFAULT_RUNTIME_CLASS_NAME").unwrap_or_else(|_| "kata".to_owned()));
 static STORAGE_CLASS_NAME: Lazy<String> =
     Lazy::new(|| std::env::var("STORAGE_CLASS_NAME").unwrap_or_else(|_| "openebs-lvm".to_owned()));
 const DEFAULT_CONTAINER_CAPS: [&str; 14] = [
@@ -48,14 +41,6 @@ const DEFAULT_CONTAINER_CAPS: [&str; 14] = [
     "KILL",
     "AUDIT_WRITE",
 ];
-
-fn append_image_tag_if_missing(mut image: String) -> String {
-    if !image.contains(':') {
-        image.push(':');
-        image.push_str(DEFAULT_ROOTFS_IMAGE_TAG.as_str());
-    }
-    image
-}
 
 fn build_container(
     pod_name: &str,
@@ -137,14 +122,10 @@ fn build_init_container(pod_name: &str, password: &str, image: &str) -> Containe
     }
 }
 
-fn rootfs_name(pod_name: &str) -> String {
-    format!("{}-rootfs", pod_name)
-}
-
-fn build_rootfs_pvc(pod_name: &str, disk_size: usize) -> PersistentVolumeClaim {
+fn build_rootfs_pvc(pvc_name: &str, disk_size: usize) -> PersistentVolumeClaim {
     PersistentVolumeClaim {
         metadata: ObjectMeta {
-            name: Some(rootfs_name(pod_name)),
+            name: Some(pvc_name.to_owned()),
             namespace: Some(NAMESPACE.to_owned()),
             ..Default::default()
         },
@@ -164,11 +145,11 @@ fn build_rootfs_pvc(pod_name: &str, disk_size: usize) -> PersistentVolumeClaim {
     }
 }
 
-fn build_rootfs_volume(pod_name: &str) -> Volume {
+fn build_rootfs_volume(pvc_name: &str) -> Volume {
     Volume {
         name: "rootfs".to_owned(),
         persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
-            claim_name: rootfs_name(pod_name),
+            claim_name: pvc_name.to_owned(),
             read_only: Some(false),
         }),
         ..Default::default()
@@ -236,6 +217,7 @@ fn build_pod_service(pod_name: &str) -> Service {
 #[allow(clippy::too_many_arguments)]
 fn build_pod(
     pod_name: &str,
+    pvc_name: &str,
     cpu_limit: usize,
     memory_limit: usize,
     hostname: &str,
@@ -261,7 +243,7 @@ fn build_pod(
             containers: vec![build_container(pod_name, cpu_limit, memory_limit, runtime)],
             init_containers: Some(vec![build_init_container(pod_name, password, image)]),
             volumes: Some(vec![
-                build_rootfs_volume(pod_name),
+                build_rootfs_volume(pvc_name),
                 build_init_rootfs_volume(),
             ]),
             restart_policy: Some("Always".to_owned()),
@@ -317,22 +299,6 @@ impl Operator {
             let state = self.storage.snapshot().await;
             for user in &state.users {
                 for instance in &user.instances {
-                    match self.sync_instance(user, instance).await {
-                        Ok(true) => {
-                            // Instance is updated, continue with the next loop.
-                            continue;
-                        }
-                        Ok(false) => {}
-                        Err(e) => {
-                            warn!(
-                                username = user.username.as_str(),
-                                instance = instance.name.as_str(),
-                                error = e.to_string().as_str(),
-                                "syncing instance encountered error"
-                            );
-                            continue;
-                        }
-                    }
                     match instance.stage {
                         InstanceStage::Stopped => {
                             if instance.status != InstanceStatus::Stopped {
@@ -460,45 +426,6 @@ impl Operator {
         }
     }
 
-    async fn sync_instance(&self, user: &User, instance: &Instance) -> Result<bool> {
-        let image = instance
-            .image
-            .clone()
-            .unwrap_or_else(|| DEFAULT_ROOTFS_IMAGE.to_owned());
-        let image = append_image_tag_if_missing(image);
-        let runtime = instance
-            .runtime
-            .clone()
-            .unwrap_or_else(|| DEFAULT_RUNTIME_CLASS_NAME.to_owned());
-        if instance.image.as_ref() == Some(&image) && instance.runtime.as_ref() == Some(&runtime) {
-            return Ok(false);
-        }
-        let instance_name = instance.name.clone();
-        self.storage
-            .read_write(|state| {
-                match state.users.iter_mut().find(|u| u.username == user.username) {
-                    Some(u) => {
-                        match u
-                            .instances
-                            .iter_mut()
-                            .find(|instance| instance.name == instance_name)
-                        {
-                            Some(instance) => {
-                                instance.image = Some(image.clone());
-                                instance.runtime = Some(runtime.clone());
-                                true
-                            }
-                            None => false,
-                        }
-                    }
-                    None => false,
-                }
-            })
-            .await
-            .map_err(|e| anyhow!(e))?;
-        Ok(true)
-    }
-
     async fn stop_instance(&self, user: &User, instance: &Instance) -> Result<()> {
         let pod_name = format!("{}-{}", user.username, instance.name);
         info!("deleting pod {}", pod_name);
@@ -538,13 +465,13 @@ impl Operator {
         }
 
         // 3. Ensure PersistentVolumeClaim is created.
-        let pvc_name = rootfs_name(&pod_name);
+        let pvc_name = format!("{}-{}-rootfs", user.username, instance.name);
         let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
         match pvcs.get(&pvc_name).await {
             Ok(_) => {}
             Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
                 info!("creating persistentvolumeclaim {}", pvc_name);
-                let pvc = build_rootfs_pvc(&pod_name, instance.disk_size);
+                let pvc = build_rootfs_pvc(&pvc_name, instance.disk_size);
                 pvcs.create(&PostParams::default(), &pvc).await?;
             }
             Err(e) => {
@@ -560,13 +487,14 @@ impl Operator {
                 info!("creating pod {}", pod_name);
                 let pod = build_pod(
                     &pod_name,
+                    &pvc_name,
                     instance.cpu,
                     instance.memory,
                     &hostname,
                     &subdomain,
                     &instance.password,
-                    instance.image.as_ref().unwrap(),
-                    instance.runtime.as_ref().unwrap(),
+                    instance.image.as_ref(),
+                    instance.runtime.as_ref(),
                 );
                 pods.create(&PostParams::default(), &pod).await?;
             }
@@ -579,7 +507,7 @@ impl Operator {
 
     async fn delete_instance(&self, user: &User, instance: &Instance) -> Result<()> {
         let pod_name = format!("{}-{}", user.username, instance.name);
-        let pvc_name = rootfs_name(&pod_name);
+        let pvc_name = format!("{}-{}-rootfs", user.username, instance.name);
         self.delete_pod(&pod_name).await?;
         self.delete_pvc(&pvc_name).await?;
         self.delete_service(&pod_name).await?;
@@ -589,7 +517,7 @@ impl Operator {
     async fn update_instance_status(&self, user: &User, instance: &Instance) -> Result<()> {
         let pod_name = format!("{}-{}", user.username, instance.name);
         let pods: Api<Pod> = Api::namespaced(self.client.clone(), NAMESPACE);
-        let pvc_name = rootfs_name(&pod_name);
+        let pvc_name = format!("{}-{}-rootfs", user.username, instance.name);
         let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
         let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
         let mut new_status = instance.status.clone();
@@ -737,22 +665,5 @@ impl Operator {
             })
             .await
             .map_err(|e| anyhow!(e))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_append_image_tag_if_missing() {
-        assert_eq!(
-            append_image_tag_if_missing("tispace/ubuntu2004".to_owned()),
-            "tispace/ubuntu2004:latest".to_owned()
-        );
-        assert_eq!(
-            append_image_tag_if_missing("tispace/ubuntu2004:1.2.0".to_owned()),
-            "tispace/ubuntu2004:1.2.0".to_owned()
-        );
     }
 }
