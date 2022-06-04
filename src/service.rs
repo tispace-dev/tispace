@@ -26,8 +26,17 @@ use crate::{
 
 static INSTANCE_NAME_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$").unwrap());
+
+static DEFAULT_ROOTFS_IMAGE: Lazy<String> = Lazy::new(|| {
+    std::env::var("DEFAULT_ROOTFS_IMAGE").unwrap_or_else(|_| "tispace/centos7".to_owned())
+});
+static DEFAULT_ROOTFS_IMAGE_TAG: Lazy<String> =
+    Lazy::new(|| std::env::var("DEFAULT_ROOTFS_IMAGE_TAG").unwrap_or_else(|_| "latest".to_owned()));
 const VERIFIED_ROOTFS_IMAGES: [&str; 2] = ["tispace/centos7", "tispace/ubuntu2004"];
+
 const SUPPORTED_RUNTIMES: [&str; 2] = ["kata", "runc"];
+static DEFAULT_RUNTIME_CLASS_NAME: Lazy<String> =
+    Lazy::new(|| std::env::var("DEFAULT_RUNTIME_CLASS_NAME").unwrap_or_else(|_| "kata".to_owned()));
 
 /// Returns true if and only if the name is a valid instance name.
 ///
@@ -43,6 +52,15 @@ fn verify_instance_name(name: &str) -> bool {
 /// Currently we only support images which is in the list of verified images.
 fn is_verified_rootfs_image(image: &str) -> bool {
     VERIFIED_ROOTFS_IMAGES.iter().any(|&s| s == image)
+}
+
+/// Append a tag if the image is not tagged.
+fn append_image_tag_if_missing(mut image: String) -> String {
+    if !image.contains(':') {
+        image.push(':');
+        image.push_str(DEFAULT_ROOTFS_IMAGE_TAG.as_str());
+    }
+    image
 }
 
 pub fn protected_routes() -> Router {
@@ -63,16 +81,26 @@ pub fn protected_routes() -> Router {
         if req.disk_size == 0 {
             return Err(InstanceError::InvalidArgs("disk_size".to_string()));
         }
-        if let Some(image) = &req.image {
+        let image = if let Some(image) = &req.image {
             if !is_verified_rootfs_image(image) {
                 return Err(InstanceError::ImageUnverified);
             }
-        }
-        if let Some(runtime) = &req.runtime {
+            append_image_tag_if_missing(image.to_owned())
+        } else {
+            format!(
+                "{}:{}",
+                DEFAULT_ROOTFS_IMAGE.as_str(),
+                DEFAULT_ROOTFS_IMAGE_TAG.as_str()
+            )
+        };
+        let runtime = if let Some(runtime) = &req.runtime {
             if !SUPPORTED_RUNTIMES.iter().any(|&s| s == runtime) {
                 return Err(InstanceError::InvalidArgs("runtime".to_string()));
             }
-        }
+            runtime.to_owned()
+        } else {
+            DEFAULT_RUNTIME_CLASS_NAME.to_string()
+        };
         let mut user_err = None;
         match storage
             .read_write(|state| {
@@ -133,7 +161,7 @@ pub fn protected_routes() -> Router {
 
                         u.instances.push(Instance {
                             name: req.name.clone(),
-                            image: req.image.clone(),
+                            image: image.clone(),
                             cpu: req.cpu,
                             memory: req.memory,
                             disk_size: req.disk_size,
@@ -149,7 +177,7 @@ pub fn protected_routes() -> Router {
                             status: InstanceStatus::Starting,
                             internal_ip: None,
                             external_ip: None,
-                            runtime: req.runtime.clone(),
+                            runtime: runtime.clone(),
                         });
                         true
                     }
@@ -287,7 +315,7 @@ pub fn protected_routes() -> Router {
                                     instance.memory = memory;
                                 }
                                 if let Some(runtime) = &req.runtime {
-                                    instance.runtime = Some(runtime.to_owned());
+                                    instance.runtime = runtime.clone();
                                 }
                                 true
                             }
@@ -457,5 +485,17 @@ mod tests {
         assert!(!is_verified_rootfs_image("tispace/centos8"));
         assert!(!is_verified_rootfs_image("jrei/systemd-ubuntu"));
         assert!(!is_verified_rootfs_image("jrei/systemd-centos"));
+    }
+
+    #[test]
+    fn test_append_image_tag_if_missing() {
+        assert_eq!(
+            append_image_tag_if_missing("tispace/ubuntu2004".to_owned()),
+            "tispace/ubuntu2004:latest".to_owned()
+        );
+        assert_eq!(
+            append_image_tag_if_missing("tispace/ubuntu2004:1.2.0".to_owned()),
+            "tispace/ubuntu2004:1.2.0".to_owned()
+        );
     }
 }

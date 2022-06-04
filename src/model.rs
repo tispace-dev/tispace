@@ -49,7 +49,7 @@ crate struct Instance {
     crate cpu: usize,
     crate memory: usize,
     crate disk_size: usize,
-    crate image: Option<String>,
+    crate image: String,
     crate hostname: String,
     // Deprecated: use external_ip instead.
     crate ssh_host: Option<String>,
@@ -60,7 +60,7 @@ crate struct Instance {
     crate status: InstanceStatus,
     crate internal_ip: Option<String>,
     crate external_ip: Option<String>,
-    crate runtime: Option<String>,
+    crate runtime: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -33,10 +33,10 @@ crate struct Instance {
     crate ssh_port: Option<i32>,
     crate password: String,
     crate status: String,
-    crate image: Option<String>,
+    crate image: String,
     crate internal_ip: Option<String>,
     crate external_ip: Option<String>,
-    crate runtime: Option<String>,
+    crate runtime: String,
 }
 
 fn strip_image_tag(image: String) -> String {
@@ -59,7 +59,7 @@ impl From<&crate::model::Instance> for Instance {
             ssh_port: m.ssh_port,
             password: m.password.clone(),
             status: m.status.to_string(),
-            image: m.image.clone().map(strip_image_tag),
+            image: strip_image_tag(m.image.clone()),
             internal_ip: m.internal_ip.clone(),
             external_ip: m.external_ip.clone(),
             runtime: m.runtime.clone(),
