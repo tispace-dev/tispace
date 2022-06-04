@@ -414,7 +414,7 @@ impl Operator {
         let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
         match pvcs.delete(pvc_name, &DeleteParams::default()).await {
             Ok(Either::Left(_)) => {
-                info!("deleting serpersistentvolumeclaimvice {}", pvc_name);
+                info!("deleting persistentvolumeclaim {}", pvc_name);
                 Ok(())
             }
             Ok(Either::Right(_)) => {
