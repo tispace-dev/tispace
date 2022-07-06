@@ -60,8 +60,10 @@ crate enum InstanceError {
     StartFailed,
     #[error("Stop instance failed")]
     StopFailed,
-    #[error("Image is unverified")]
-    ImageUnverified,
+    #[error("Unsupported image")]
+    UnsupportedImage,
+    #[error("Unsupported runtime")]
+    UnsupportedRuntime,
 }
 
 impl IntoResponse for InstanceError {
@@ -80,7 +82,9 @@ impl IntoResponse for InstanceError {
             | InstanceError::UpdateFailed
             | InstanceError::StartFailed
             | InstanceError::StopFailed => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
-            InstanceError::ImageUnverified => (StatusCode::BAD_REQUEST, self.to_string()),
+            InstanceError::UnsupportedImage | InstanceError::UnsupportedRuntime => {
+                (StatusCode::BAD_REQUEST, self.to_string())
+            }
         };
         let body = Json(json!({
             "error": error_message,

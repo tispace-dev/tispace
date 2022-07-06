@@ -16,7 +16,8 @@ use std::collections::BTreeMap;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
 
-use crate::model::{Instance, InstanceStage, InstanceStatus, User};
+use crate::error::InstanceError;
+use crate::model::{Image, Instance, InstanceStage, InstanceStatus, Runtime, User};
 use crate::storage::Storage;
 
 const NAMESPACE: &str = "tispace";
@@ -41,12 +42,14 @@ const DEFAULT_CONTAINER_CAPS: [&str; 14] = [
     "KILL",
     "AUDIT_WRITE",
 ];
+static DEFAULT_ROOTFS_IMAGE_TAG: Lazy<String> =
+    Lazy::new(|| std::env::var("DEFAULT_ROOTFS_IMAGE_TAG").unwrap_or_else(|_| "latest".to_owned()));
 
 fn build_container(
     pod_name: &str,
     cpu_limit: usize,
     memory_limit: usize,
-    runtime: &str,
+    runtime: &Runtime,
 ) -> Container {
     Container {
         name: pod_name.to_owned(),
@@ -70,8 +73,8 @@ fn build_container(
     }
 }
 
-fn build_security_context(runtime: &str) -> SecurityContext {
-    if runtime == "kata" {
+fn build_security_context(runtime: &Runtime) -> SecurityContext {
+    if runtime == &Runtime::Kata {
         SecurityContext {
             privileged: Some(true),
             ..Default::default()
@@ -94,11 +97,11 @@ fn build_security_context(runtime: &str) -> SecurityContext {
     }
 }
 
-fn build_init_container(pod_name: &str, password: &str, image: &str) -> Container {
+fn build_init_container(pod_name: &str, password: &str, image_url: &str) -> Container {
     Container {
         name: format!("{}-init", pod_name),
         command: Some(vec!["/tmp/init-rootfs.sh".to_owned()]),
-        image: Some(image.to_owned()),
+        image: Some(image_url.to_owned()),
         image_pull_policy: Some("IfNotPresent".to_owned()),
         volume_mounts: Some(vec![
             VolumeMount {
@@ -223,8 +226,8 @@ fn build_pod(
     hostname: &str,
     subdomain: &str,
     password: &str,
-    image: &str,
-    runtime: &str,
+    image_url: &str,
+    runtime: &Runtime,
 ) -> Pod {
     Pod {
         metadata: ObjectMeta {
@@ -241,7 +244,7 @@ fn build_pod(
             subdomain: Some(subdomain.to_owned()),
             automount_service_account_token: Some(false),
             containers: vec![build_container(pod_name, cpu_limit, memory_limit, runtime)],
-            init_containers: Some(vec![build_init_container(pod_name, password, image)]),
+            init_containers: Some(vec![build_init_container(pod_name, password, image_url)]),
             volumes: Some(vec![
                 build_rootfs_volume(pvc_name),
                 build_init_rootfs_volume(),
@@ -251,7 +254,7 @@ fn build_pod(
                 searches: Some(vec![format!("{}.tispace.svc.cluster.local", subdomain)]),
                 ..Default::default()
             }),
-            runtime_class_name: Some(runtime.to_owned()),
+            runtime_class_name: Some(get_runtime_class_name(runtime).unwrap()),
             ..Default::default()
         }),
         ..Default::default()
@@ -284,6 +287,28 @@ fn get_external_ip(svc: &Service) -> Option<String> {
         })
 }
 
+fn get_image_url(image: &Image) -> Result<String> {
+    match image {
+        Image::CentOS7 => Ok(format!(
+            "tispace/centos7:{}",
+            DEFAULT_ROOTFS_IMAGE_TAG.as_str()
+        )),
+        Image::Ubuntu2004 => Ok(format!(
+            "tispace/ubuntu2004:{}",
+            DEFAULT_ROOTFS_IMAGE_TAG.as_str()
+        )),
+        _ => Err(anyhow!(InstanceError::UnsupportedImage)),
+    }
+}
+
+fn get_runtime_class_name(runtime: &Runtime) -> Result<String> {
+    match runtime {
+        Runtime::Kata => Ok("kata".to_owned()),
+        Runtime::Runc => Ok("runc".to_owned()),
+        _ => Err(anyhow!(InstanceError::UnsupportedRuntime)),
+    }
+}
+
 pub struct Operator {
     client: Client,
     storage: Storage,
@@ -299,6 +324,9 @@ impl Operator {
             let state = self.storage.snapshot().await;
             for user in &state.users {
                 for instance in &user.instances {
+                    if instance.runtime != Runtime::Kata && instance.runtime != Runtime::Runc {
+                        continue;
+                    }
                     match instance.stage {
                         InstanceStage::Stopped => {
                             if instance.status != InstanceStatus::Stopped {
@@ -493,8 +521,8 @@ impl Operator {
                     &hostname,
                     &subdomain,
                     &instance.password,
-                    instance.image.as_ref(),
-                    instance.runtime.as_ref(),
+                    get_image_url(&instance.image)?.as_str(),
+                    &instance.runtime,
                 );
                 pods.create(&PostParams::default(), &pod).await?;
             }

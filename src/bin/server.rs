@@ -7,7 +7,8 @@ use tower_http::cors::{any, CorsLayer, Origin};
 use tower_http::{add_extension::AddExtensionLayer, trace::TraceLayer};
 
 use tispace::error::handle_error;
-use tispace::operator::Operator;
+use tispace::operator_k8s::Operator as K8sOperator;
+use tispace::operator_lxd::Operator as LxdOperator;
 use tispace::service::protected_routes;
 use tispace::storage::Storage;
 
@@ -48,8 +49,10 @@ async fn main() {
         );
 
     let client = Client::try_default().await.unwrap();
-    let operator = Operator::new(client, s);
-    tokio::spawn(async move { operator.run().await });
+    let k8s_operator = K8sOperator::new(client, s.clone());
+    tokio::spawn(async move { k8s_operator.run().await });
+    let lxd_operator = LxdOperator::new(s);
+    tokio::spawn(async move { lxd_operator.run().await });
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     tracing::debug!("listening on {}", addr);

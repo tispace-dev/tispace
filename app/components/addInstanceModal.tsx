@@ -47,7 +47,7 @@ function AddInstanceModal({
             cpu: 8,
             memory: 16,
             disk_size: 80,
-            image: Images.Centos7,
+            image: Images.CentOS7,
             runtime: Runtimes.Kata,
           }}
         >
@@ -76,9 +76,9 @@ function AddInstanceModal({
             ]}
           >
             <Select>
-              <Select.Option value={Images.Centos7}>centos7</Select.Option>
+              <Select.Option value={Images.CentOS7}>centos:7</Select.Option>
               <Select.Option value={Images.Ubuntu2004}>
-                ubuntu2004
+                ubuntu:20.04
               </Select.Option>
             </Select>
           </Form.Item>
