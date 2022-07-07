@@ -7,8 +7,8 @@ crate struct CreateInstanceRequest {
     crate cpu: usize,
     crate memory: usize,
     crate disk_size: usize,
-    crate image: Option<String>,
-    crate runtime: Option<String>,
+    crate image: String,
+    crate runtime: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -39,14 +39,6 @@ crate struct Instance {
     crate runtime: String,
 }
 
-fn strip_image_tag(image: String) -> String {
-    if let Some(i) = image.rfind(':') {
-        image[..i].to_string()
-    } else {
-        image
-    }
-}
-
 impl From<&crate::model::Instance> for Instance {
     fn from(m: &crate::model::Instance) -> Self {
         Instance {
@@ -59,10 +51,10 @@ impl From<&crate::model::Instance> for Instance {
             ssh_port: m.ssh_port,
             password: m.password.clone(),
             status: m.status.to_string(),
-            image: strip_image_tag(m.image.clone()),
+            image: m.image.to_string(),
             internal_ip: m.internal_ip.clone(),
             external_ip: m.external_ip.clone(),
-            runtime: m.runtime.clone(),
+            runtime: m.runtime.to_string(),
         }
     }
 }
@@ -71,25 +63,4 @@ impl From<&crate::model::Instance> for Instance {
 #[serde(default)]
 crate struct ListInstancesResponse {
     crate instances: Vec<Instance>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_strip_image_tag() {
-        assert_eq!(
-            strip_image_tag("tispace/ubuntu2004".to_owned()),
-            "tispace/ubuntu2004".to_owned()
-        );
-        assert_eq!(
-            strip_image_tag("tispace/ubuntu2004:latest".to_owned()),
-            "tispace/ubuntu2004".to_owned()
-        );
-        assert_eq!(
-            strip_image_tag("tispace/ubuntu2004:1.2.0".to_owned()),
-            "tispace/ubuntu2004".to_owned()
-        );
-    }
 }

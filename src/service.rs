@@ -8,9 +8,10 @@ use axum::{
 use once_cell::sync::Lazy;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use regex::Regex;
+use std::str::FromStr;
 use tracing::warn;
 
-use crate::model::InstanceStatus;
+use crate::model::{Image, InstanceStatus, Runtime};
 use crate::storage::Storage;
 use crate::{
     auth::UserClaims,
@@ -27,17 +28,6 @@ use crate::{
 static INSTANCE_NAME_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$").unwrap());
 
-static DEFAULT_ROOTFS_IMAGE: Lazy<String> = Lazy::new(|| {
-    std::env::var("DEFAULT_ROOTFS_IMAGE").unwrap_or_else(|_| "tispace/centos7".to_owned())
-});
-static DEFAULT_ROOTFS_IMAGE_TAG: Lazy<String> =
-    Lazy::new(|| std::env::var("DEFAULT_ROOTFS_IMAGE_TAG").unwrap_or_else(|_| "latest".to_owned()));
-const VERIFIED_ROOTFS_IMAGES: [&str; 2] = ["tispace/centos7", "tispace/ubuntu2004"];
-
-const SUPPORTED_RUNTIMES: [&str; 2] = ["kata", "runc"];
-static DEFAULT_RUNTIME_CLASS_NAME: Lazy<String> =
-    Lazy::new(|| std::env::var("DEFAULT_RUNTIME_CLASS_NAME").unwrap_or_else(|_| "kata".to_owned()));
-
 /// Returns true if and only if the name is a valid instance name.
 ///
 /// Instance name will be used as kubernetes's resource names, such as pod names, label names,
@@ -45,22 +35,6 @@ static DEFAULT_RUNTIME_CLASS_NAME: Lazy<String> =
 /// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names.
 fn verify_instance_name(name: &str) -> bool {
     INSTANCE_NAME_REGEX.is_match(name)
-}
-
-/// Returns true if the image is verifed.
-///
-/// Currently we only support images which is in the list of verified images.
-fn is_verified_rootfs_image(image: &str) -> bool {
-    VERIFIED_ROOTFS_IMAGES.iter().any(|&s| s == image)
-}
-
-/// Append a tag if the image is not tagged.
-fn append_image_tag_if_missing(mut image: String) -> String {
-    if !image.contains(':') {
-        image.push(':');
-        image.push_str(DEFAULT_ROOTFS_IMAGE_TAG.as_str());
-    }
-    image
 }
 
 pub fn protected_routes() -> Router {
@@ -81,26 +55,12 @@ pub fn protected_routes() -> Router {
         if req.disk_size == 0 {
             return Err(InstanceError::InvalidArgs("disk_size".to_string()));
         }
-        let image = if let Some(image) = &req.image {
-            if !is_verified_rootfs_image(image) {
-                return Err(InstanceError::ImageUnverified);
-            }
-            append_image_tag_if_missing(image.to_owned())
-        } else {
-            format!(
-                "{}:{}",
-                DEFAULT_ROOTFS_IMAGE.as_str(),
-                DEFAULT_ROOTFS_IMAGE_TAG.as_str()
-            )
-        };
-        let runtime = if let Some(runtime) = &req.runtime {
-            if !SUPPORTED_RUNTIMES.iter().any(|&s| s == runtime) {
-                return Err(InstanceError::InvalidArgs("runtime".to_string()));
-            }
-            runtime.to_owned()
-        } else {
-            DEFAULT_RUNTIME_CLASS_NAME.to_string()
-        };
+        let image = Image::from_str(&req.image)?;
+        let runtime = Runtime::from_str(&req.runtime)?;
+        if !runtime.supported_images().contains(&image) {
+            return Err(InstanceError::UnsupportedRuntime);
+        }
+
         let mut user_err = None;
         match storage
             .read_write(|state| {
@@ -257,9 +217,7 @@ pub fn protected_routes() -> Router {
             return Err(InstanceError::InvalidArgs("memory".to_string()));
         }
         if let Some(runtime) = &req.runtime {
-            if !SUPPORTED_RUNTIMES.iter().any(|&s| s == runtime) {
-                return Err(InstanceError::InvalidArgs("runtime".to_string()));
-            }
+            let _ = Runtime::from_str(runtime)?;
         }
         let mut user_err = None;
         match storage
@@ -315,7 +273,13 @@ pub fn protected_routes() -> Router {
                                     instance.memory = memory;
                                 }
                                 if let Some(runtime) = &req.runtime {
-                                    instance.runtime = runtime.clone();
+                                    let runtime = Runtime::from_str(runtime).unwrap();
+                                    if instance.runtime.compatiable_with(&runtime) {
+                                        instance.runtime = runtime;
+                                    } else {
+                                        user_err = Some(InstanceError::UnsupportedRuntime);
+                                        return false;
+                                    }
                                 }
                                 true
                             }
@@ -476,26 +440,5 @@ mod tests {
         assert!(!verify_instance_name("DEV01"));
         assert!(verify_instance_name("dev-new"));
         assert!(!verify_instance_name("01dev"));
-    }
-
-    #[test]
-    fn test_is_verified_rootfs_image() {
-        assert!(is_verified_rootfs_image("tispace/ubuntu2004"));
-        assert!(is_verified_rootfs_image("tispace/centos7"));
-        assert!(!is_verified_rootfs_image("tispace/centos8"));
-        assert!(!is_verified_rootfs_image("jrei/systemd-ubuntu"));
-        assert!(!is_verified_rootfs_image("jrei/systemd-centos"));
-    }
-
-    #[test]
-    fn test_append_image_tag_if_missing() {
-        assert_eq!(
-            append_image_tag_if_missing("tispace/ubuntu2004".to_owned()),
-            "tispace/ubuntu2004:latest".to_owned()
-        );
-        assert_eq!(
-            append_image_tag_if_missing("tispace/ubuntu2004:1.2.0".to_owned()),
-            "tispace/ubuntu2004:1.2.0".to_owned()
-        );
     }
 }

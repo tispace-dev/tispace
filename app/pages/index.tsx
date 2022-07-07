@@ -242,13 +242,6 @@ const Home: NextPage = () => {
       title: 'Image',
       dataIndex: 'image',
       key: 'image',
-      render: (image) => {
-        return (
-          <a href={`https://hub.docker.com/r/${image}`}>
-            <Tag color="blue">{image}</Tag>
-          </a>
-        )
-      },
     },
     {
       title: 'Hostname',
