@@ -131,6 +131,9 @@ const Home: NextPage = () => {
 
   const getStatusTag = (status: string) => {
     switch (status) {
+      case InstanceStatus.Creating: {
+        return <Tag color="lime">{status}</Tag>
+      }
       case InstanceStatus.Starting: {
         return <Tag color="lime">{status}</Tag>
       }
@@ -180,7 +183,10 @@ const Home: NextPage = () => {
           </Popconfirm>
         </div>
       )
-    } else if (record.status === InstanceStatus.Starting) {
+    } else if (
+      record.status == InstanceStatus.Creating ||
+      record.status === InstanceStatus.Starting
+    ) {
       return (
         <div className={styles.operation}>{deleteInstancePopconfirm()}</div>
       )
@@ -247,6 +253,16 @@ const Home: NextPage = () => {
       title: 'Hostname',
       dataIndex: 'hostname',
       key: 'hostname',
+    },
+    {
+      title: 'Node Name',
+      dataIndex: 'node_name',
+      key: 'node_name',
+    },
+    {
+      title: 'Storage Pool',
+      dataIndex: 'storage_pool',
+      key: 'storage_pool',
     },
     {
       title: 'SSH Command',

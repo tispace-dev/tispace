@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: lxd-client-cert
+  namespace: tispace
+data:
+  lxd-client.p12: << insert lxd client cert here >>
+type: Opaque

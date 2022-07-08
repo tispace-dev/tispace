@@ -1,6 +1,5 @@
 import { createServer } from 'http'
 import next from 'next'
-import absoluteUrl from 'next-absolute-url'
 import { parse } from 'url'
 
 const dev = process.env.NODE_ENV !== 'production'

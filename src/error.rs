@@ -60,10 +60,18 @@ crate enum InstanceError {
     StartFailed,
     #[error("Stop instance failed")]
     StopFailed,
-    #[error("Unsupported image")]
-    UnsupportedImage,
-    #[error("Unsupported runtime")]
-    UnsupportedRuntime,
+    #[error("Image {image} is unavailable on runtime {runtime}")]
+    ImageUnavailable { image: String, runtime: String },
+    #[error("Runtime {target} is incompatible with runtime {current}")]
+    RuntimeIncompatible { current: String, target: String },
+    #[error("No node has enough resources to create instance")]
+    ResourceExhausted,
+    #[error("Unknown node {0}")]
+    UnknownNode(String),
+    #[error("Unknown storage pool {0}")]
+    UnknownStoragePool(String),
+    #[error("Runtime {runtime} cannot specify storage pool")]
+    StoragePoolCannotBeSpecified { runtime: String },
 }
 
 impl IntoResponse for InstanceError {
@@ -71,10 +79,16 @@ impl IntoResponse for InstanceError {
         let (status, error_message) = match self {
             InstanceError::InvalidArgs(_) => (StatusCode::BAD_REQUEST, self.to_string()),
             InstanceError::AlreadyExists => (StatusCode::CONFLICT, self.to_string()),
-            InstanceError::AlreadyDeleted | InstanceError::NotYetStopped => {
+            InstanceError::AlreadyDeleted
+            | InstanceError::NotYetStopped
+            | InstanceError::ImageUnavailable { .. }
+            | InstanceError::RuntimeIncompatible { .. }
+            | InstanceError::UnknownNode(_)
+            | InstanceError::UnknownStoragePool(_)
+            | InstanceError::StoragePoolCannotBeSpecified { .. } => {
                 (StatusCode::BAD_REQUEST, self.to_string())
             }
-            InstanceError::QuotaExceeded { .. } => {
+            InstanceError::QuotaExceeded { .. } | InstanceError::ResourceExhausted => {
                 (StatusCode::UNPROCESSABLE_ENTITY, self.to_string())
             }
             InstanceError::CreateFailed
@@ -82,9 +96,6 @@ impl IntoResponse for InstanceError {
             | InstanceError::UpdateFailed
             | InstanceError::StartFailed
             | InstanceError::StopFailed => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
-            InstanceError::UnsupportedImage | InstanceError::UnsupportedRuntime => {
-                (StatusCode::BAD_REQUEST, self.to_string())
-            }
         };
         let body = Json(json!({
             "error": error_message,

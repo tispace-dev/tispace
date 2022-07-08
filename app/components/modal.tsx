@@ -2,7 +2,7 @@ import { FormInstance } from 'antd'
 import { useEffect, useRef } from 'react'
 
 export const modalFormLayout = {
-  labelCol: { span: 4 },
+  labelCol: { span: 5 },
   wrapperCol: { span: 18 },
 }
 

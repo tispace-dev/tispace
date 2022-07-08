@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-env
+  namespace: tispace
+data:
+  next-public-server-url: https://api.tispace.dev
+  nextauth-url: https://tispace.dev

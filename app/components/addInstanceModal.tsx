@@ -4,9 +4,12 @@ import { FaMemory } from 'react-icons/fa'
 import { ImFloppyDisk } from 'react-icons/im'
 import { BsFillCpuFill } from 'react-icons/bs'
 
-import { Images, instanceNameRegex, Runtimes } from './instance'
+import { Images, Runtimes } from './instance'
 import { modalFormLayout, useResetFormOnCloseModal } from './modal'
 import { CreateInstanceRequest } from '../lib/service/instanceService'
+
+// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+export const nameRegex = /^(?![0-9]+$)(?!.*-$)(?!-)[a-z0-9-]{1,63}$/g
 
 interface AddInstanceModalProps {
   visible: boolean
@@ -48,7 +51,7 @@ function AddInstanceModal({
             memory: 16,
             disk_size: 80,
             image: Images.CentOS7,
-            runtime: Runtimes.Kata,
+            runtime: Runtimes.Runc,
           }}
         >
           <Form.Item
@@ -57,7 +60,7 @@ function AddInstanceModal({
             rules={[
               {
                 required: true,
-                pattern: instanceNameRegex,
+                pattern: nameRegex,
                 message:
                   'Only lowercase letters, numbers, and `-` can be included, please start and end with a lowercase letter or number!',
               },
@@ -79,6 +82,9 @@ function AddInstanceModal({
               <Select.Option value={Images.CentOS7}>centos:7</Select.Option>
               <Select.Option value={Images.Ubuntu2004}>
                 ubuntu:20.04
+              </Select.Option>
+              <Select.Option value={Images.Ubuntu2204}>
+                ubuntu:22.04
               </Select.Option>
             </Select>
           </Form.Item>
@@ -141,9 +147,37 @@ function AddInstanceModal({
             ]}
           >
             <Select>
-              <Select.Option value={Runtimes.Kata}>kata</Select.Option>
               <Select.Option value={Runtimes.Runc}>runc</Select.Option>
+              <Select.Option value={Runtimes.Kata}>kata</Select.Option>
+              <Select.Option value={Runtimes.Lxc}>lxc</Select.Option>
+              <Select.Option value={Runtimes.Kvm}>kvm</Select.Option>
             </Select>
+          </Form.Item>
+          <Form.Item
+            name="node_name"
+            label="Node Name"
+            rules={[
+              {
+                pattern: nameRegex,
+                message:
+                  'Only lowercase letters, numbers, and `-` can be included, please start and end with a lowercase letter or number!',
+              },
+            ]}
+          >
+            <Input placeholder="Auto" />
+          </Form.Item>
+          <Form.Item
+            name="storage_pool"
+            label="Storage Pool"
+            rules={[
+              {
+                pattern: nameRegex,
+                message:
+                  'Only lowercase letters, numbers, and `-` can be included, please start and end with a lowercase letter or number!',
+              },
+            ]}
+          >
+            <Input placeholder="Auto" />
           </Form.Item>
         </Form>
       </Modal>

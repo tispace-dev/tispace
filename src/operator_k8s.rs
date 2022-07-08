@@ -1,9 +1,10 @@
 use anyhow::{anyhow, Result};
 use either::Either;
 use k8s_openapi::api::core::v1::{
-    Capabilities, ConfigMapVolumeSource, Container, EnvVar, PersistentVolumeClaim,
-    PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource, Pod, PodDNSConfig, PodSpec,
-    ResourceRequirements, SecurityContext, Service, ServicePort, ServiceSpec, Volume, VolumeMount,
+    Capabilities, ConfigMapVolumeSource, Container, EnvVar, PersistentVolume,
+    PersistentVolumeClaim, PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource, Pod,
+    PodDNSConfig, PodSpec, ResourceRequirements, SecurityContext, Service, ServicePort,
+    ServiceSpec, Volume, VolumeMount,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
@@ -11,12 +12,11 @@ use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::{DeleteParams, PostParams};
 use kube::error::ErrorResponse;
 use kube::{Api, Client};
-use once_cell::sync::Lazy;
 use std::collections::BTreeMap;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
 
-use crate::error::InstanceError;
+use crate::env::{DEFAULT_ROOTFS_IMAGE_TAG, LXD_STORAGE_POOL_MAPPING, STORAGE_CLASS_NAME};
 use crate::model::{Image, Instance, InstanceStage, InstanceStatus, Runtime, User};
 use crate::storage::Storage;
 
@@ -24,8 +24,6 @@ const NAMESPACE: &str = "tispace";
 const FAKE_IMAGE: &str = "k8s.gcr.io/pause:3.5";
 const PASSWORD_ENV_KEY: &str = "PASSWORD";
 
-static STORAGE_CLASS_NAME: Lazy<String> =
-    Lazy::new(|| std::env::var("STORAGE_CLASS_NAME").unwrap_or_else(|_| "openebs-lvm".to_owned()));
 const DEFAULT_CONTAINER_CAPS: [&str; 14] = [
     "CHOWN",
     "DAC_OVERRIDE",
@@ -42,8 +40,6 @@ const DEFAULT_CONTAINER_CAPS: [&str; 14] = [
     "KILL",
     "AUDIT_WRITE",
 ];
-static DEFAULT_ROOTFS_IMAGE_TAG: Lazy<String> =
-    Lazy::new(|| std::env::var("DEFAULT_ROOTFS_IMAGE_TAG").unwrap_or_else(|_| "latest".to_owned()));
 
 fn build_container(
     pod_name: &str,
@@ -215,21 +211,24 @@ fn build_pod_service(pod_name: &str) -> Service {
     }
 }
 
-// TODO: refactor.
-// Make clippy happy.
-#[allow(clippy::too_many_arguments)]
-fn build_pod(
-    pod_name: &str,
-    pvc_name: &str,
-    cpu_limit: usize,
-    memory_limit: usize,
-    hostname: &str,
-    subdomain: &str,
-    password: &str,
-    image_url: &str,
-    runtime: &Runtime,
-) -> Pod {
-    Pod {
+fn build_pod(pod_name: &str, pvc_name: &str, subdomain: &str, instance: &Instance) -> Result<Pod> {
+    let mut volumes = vec![build_rootfs_volume(pvc_name)];
+    let mut init_containers = None;
+
+    if instance.status == InstanceStatus::Creating {
+        let image_url = get_image_url(&instance.image)?;
+        volumes.push(build_init_rootfs_volume());
+        init_containers = Some(vec![build_init_container(
+            pod_name,
+            &instance.password,
+            &image_url,
+        )]);
+    }
+
+    let node_selector = instance.node_name.as_ref().map(|node_name| {
+        BTreeMap::from([("kubernetes.io/hostname".to_owned(), node_name.to_owned())])
+    });
+    Ok(Pod {
         metadata: ObjectMeta {
             name: Some(pod_name.to_owned()),
             namespace: Some(NAMESPACE.to_owned()),
@@ -240,25 +239,28 @@ fn build_pod(
             ..Default::default()
         },
         spec: Some(PodSpec {
-            hostname: Some(hostname.to_owned()),
+            hostname: Some(instance.name.to_owned()),
             subdomain: Some(subdomain.to_owned()),
             automount_service_account_token: Some(false),
-            containers: vec![build_container(pod_name, cpu_limit, memory_limit, runtime)],
-            init_containers: Some(vec![build_init_container(pod_name, password, image_url)]),
-            volumes: Some(vec![
-                build_rootfs_volume(pvc_name),
-                build_init_rootfs_volume(),
-            ]),
+            containers: vec![build_container(
+                pod_name,
+                instance.cpu,
+                instance.memory,
+                &instance.runtime,
+            )],
+            init_containers,
+            volumes: Some(volumes),
             restart_policy: Some("Always".to_owned()),
             dns_config: Some(PodDNSConfig {
                 searches: Some(vec![format!("{}.tispace.svc.cluster.local", subdomain)]),
                 ..Default::default()
             }),
-            runtime_class_name: Some(get_runtime_class_name(runtime).unwrap()),
+            runtime_class_name: Some(get_runtime_class_name(&instance.runtime)?),
+            node_selector,
             ..Default::default()
         }),
         ..Default::default()
-    }
+    })
 }
 
 fn get_ssh_port(svc: &Service) -> Option<i32> {
@@ -297,7 +299,7 @@ fn get_image_url(image: &Image) -> Result<String> {
             "tispace/ubuntu2004:{}",
             DEFAULT_ROOTFS_IMAGE_TAG.as_str()
         )),
-        _ => Err(anyhow!(InstanceError::UnsupportedImage)),
+        _ => Err(anyhow!("invalid image {}", image)),
     }
 }
 
@@ -305,7 +307,7 @@ fn get_runtime_class_name(runtime: &Runtime) -> Result<String> {
     match runtime {
         Runtime::Kata => Ok("kata".to_owned()),
         Runtime::Runc => Ok("runc".to_owned()),
-        _ => Err(anyhow!(InstanceError::UnsupportedRuntime)),
+        _ => Err(anyhow!("invalid runtime {}", runtime)),
     }
 }
 
@@ -327,68 +329,7 @@ impl Operator {
                     if instance.runtime != Runtime::Kata && instance.runtime != Runtime::Runc {
                         continue;
                     }
-                    match instance.stage {
-                        InstanceStage::Stopped => {
-                            if instance.status != InstanceStatus::Stopped {
-                                info!(
-                                    username = user.username.as_str(),
-                                    instance = instance.name.as_str(),
-                                    "stopping instance"
-                                );
-                                if let Err(e) = self.stop_instance(user, instance).await {
-                                    warn!(
-                                        username = user.username.as_str(),
-                                        instance = instance.name.as_str(),
-                                        error = e.to_string().as_str(),
-                                        "stopping instance encountered error"
-                                    );
-                                }
-                            }
-                        }
-                        InstanceStage::Running => {
-                            if instance.status != InstanceStatus::Running
-                            // If external ip is missing, we need to ensure pod service is created.
-                                || instance.external_ip.is_none()
-                            {
-                                info!(
-                                    username = user.username.as_str(),
-                                    instance = instance.name.as_str(),
-                                    "starting instance"
-                                );
-                                if let Err(e) = self.start_instance(user, instance).await {
-                                    warn!(
-                                        username = user.username.as_str(),
-                                        instance = instance.name.as_str(),
-                                        error = e.to_string().as_str(),
-                                        "starting instance encountered error"
-                                    );
-                                }
-                            }
-                        }
-                        InstanceStage::Deleted => {
-                            info!(
-                                username = user.username.as_str(),
-                                instance = instance.name.as_str(),
-                                "deleting instance"
-                            );
-                            if let Err(e) = self.delete_instance(user, instance).await {
-                                warn!(
-                                    username = user.username.as_str(),
-                                    instance = instance.name.as_str(),
-                                    error = e.to_string().as_str(),
-                                    "deleting instance encountered error"
-                                );
-                            }
-                        }
-                    }
-                    if let Err(e) = self.update_instance_status(user, instance).await {
-                        warn!(
-                            username = user.username.as_str(),
-                            instance = instance.name.as_str(),
-                            error = e.to_string().as_str(),
-                            "updating instance status encountered error"
-                        );
-                    }
+                    self.sync_instance(user, instance).await;
                 }
                 // If a user has no instance, delete the Service.
                 if user.instances.is_empty() {
@@ -403,6 +344,78 @@ impl Operator {
                 }
             }
             sleep(Duration::from_secs(3)).await;
+        }
+    }
+
+    async fn sync_instance(&self, user: &User, instance: &Instance) {
+        match instance.stage {
+            InstanceStage::Stopped => {
+                if instance.status != InstanceStatus::Stopped {
+                    info!(
+                        username = user.username.as_str(),
+                        instance = instance.name.as_str(),
+                        runtime = instance.runtime.to_string().as_str(),
+                        "stopping instance"
+                    );
+                    if let Err(e) = self.stop_instance(user, instance).await {
+                        warn!(
+                            username = user.username.as_str(),
+                            instance = instance.name.as_str(),
+                            runtime = instance.runtime.to_string().as_str(),
+                            error = e.to_string().as_str(),
+                            "stopping instance encountered error"
+                        );
+                    }
+                }
+            }
+            InstanceStage::Running => {
+                if instance.status != InstanceStatus::Running
+                    // If external ip is missing, we need to ensure pod service is created.
+                    || instance.external_ip.is_none()
+                {
+                    info!(
+                        username = user.username.as_str(),
+                        instance = instance.name.as_str(),
+                        runtime = instance.runtime.to_string().as_str(),
+                        "starting instance"
+                    );
+                    if let Err(e) = self.start_instance(user, instance).await {
+                        warn!(
+                            username = user.username.as_str(),
+                            instance = instance.name.as_str(),
+                            runtime = instance.runtime.to_string().as_str(),
+                            error = e.to_string().as_str(),
+                            "starting instance encountered error"
+                        );
+                    }
+                }
+            }
+            InstanceStage::Deleted => {
+                info!(
+                    username = user.username.as_str(),
+                    instance = instance.name.as_str(),
+                    runtime = instance.runtime.to_string().as_str(),
+                    "deleting instance"
+                );
+                if let Err(e) = self.delete_instance(user, instance).await {
+                    warn!(
+                        username = user.username.as_str(),
+                        instance = instance.name.as_str(),
+                        runtime = instance.runtime.to_string().as_str(),
+                        error = e.to_string().as_str(),
+                        "deleting instance encountered error"
+                    );
+                }
+            }
+        }
+        if let Err(e) = self.update_instance_status(user, instance).await {
+            warn!(
+                username = user.username.as_str(),
+                instance = instance.name.as_str(),
+                runtime = instance.runtime.to_string().as_str(),
+                error = e.to_string().as_str(),
+                "updating instance status encountered error"
+            );
         }
     }
 
@@ -464,7 +477,6 @@ impl Operator {
         let pod_name = format!("{}-{}", user.username, instance.name);
 
         // 1. Ensure sudomain service is created.
-        let hostname = instance.name.clone();
         let subdomain = user.username.clone();
         let services: Api<Service> = Api::namespaced(self.client.clone(), NAMESPACE);
         match services.get(&subdomain).await {
@@ -513,17 +525,7 @@ impl Operator {
             Ok(_) => {}
             Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
                 info!("creating pod {}", pod_name);
-                let pod = build_pod(
-                    &pod_name,
-                    &pvc_name,
-                    instance.cpu,
-                    instance.memory,
-                    &hostname,
-                    &subdomain,
-                    &instance.password,
-                    get_image_url(&instance.image)?.as_str(),
-                    &instance.runtime,
-                );
+                let pod = build_pod(&pod_name, &pvc_name, &subdomain, instance)?;
                 pods.create(&PostParams::default(), &pod).await?;
             }
             Err(e) => {
@@ -553,6 +555,7 @@ impl Operator {
         let mut new_ssh_port = None;
         let mut new_internal_ip = None;
         let mut new_external_ip = None;
+        let mut new_node_name = None;
         let mut deleted = false;
         match instance.stage {
             InstanceStage::Stopped => match pods.get(&pod_name).await {
@@ -576,7 +579,9 @@ impl Operator {
                             new_status = InstanceStatus::Running;
                         } else {
                             match instance.status {
-                                InstanceStatus::Running | InstanceStatus::Error(_) => {
+                                InstanceStatus::Running
+                                | InstanceStatus::Missing
+                                | InstanceStatus::Error(_) => {
                                     new_status =
                                         InstanceStatus::Error(format!("Pod is {}", pod_status));
                                     warn!(
@@ -594,6 +599,10 @@ impl Operator {
                         }
                         if let Some(pod_ip) = pod.status.as_ref().and_then(|s| s.pod_ip.clone()) {
                             new_internal_ip = Some(pod_ip);
+                        }
+                        if let Some(node_name) = pod.spec.as_ref().and_then(|s| s.node_name.clone())
+                        {
+                            new_node_name = Some(node_name);
                         }
                         match services.get(&pod_name).await {
                             Ok(svc) => {
@@ -613,7 +622,7 @@ impl Operator {
                     Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
                         match instance.status {
                             InstanceStatus::Running | InstanceStatus::Error(_) => {
-                                new_status = InstanceStatus::Error("Pod is missing".to_owned());
+                                new_status = InstanceStatus::Missing;
                                 warn!(
                                     username = user.username.as_str(),
                                     instance = instance.name.as_str(),
@@ -659,19 +668,19 @@ impl Operator {
                 }
             }
         }
-        // Status is unchanged, skip writing storage.
-        if !deleted
-            && new_status == instance.status
-            && new_ssh_host == instance.ssh_host
-            && new_ssh_port == instance.ssh_port
-            && new_internal_ip == instance.internal_ip
-            && new_external_ip == instance.external_ip
-        {
-            return Ok(());
+
+        let mut new_storage_pool = None;
+        if !LXD_STORAGE_POOL_MAPPING.is_empty() && instance.storage_pool.is_none() {
+            new_storage_pool = self
+                .get_lvm_volume_name(user, instance)
+                .await?
+                .and_then(|s| LXD_STORAGE_POOL_MAPPING.get(&s))
+                .map(|s| s.to_owned());
         }
+
         self.storage
             .read_write(|state| {
-                if let Some(u) = state.users.iter_mut().find(|u| u.username == user.username) {
+                if let Some(u) = state.find_mut_user(&user.username) {
                     for i in 0..u.instances.len() {
                         if u.instances[i].name == instance.name
                             && u.instances[i].stage == instance.stage
@@ -684,6 +693,12 @@ impl Operator {
                                 u.instances[i].status = new_status.clone();
                                 u.instances[i].internal_ip = new_internal_ip.clone();
                                 u.instances[i].external_ip = new_external_ip.clone();
+                                if new_node_name.is_some() {
+                                    u.instances[i].node_name = new_node_name.clone();
+                                }
+                                if new_storage_pool.is_some() {
+                                    u.instances[i].storage_pool = new_storage_pool.clone();
+                                }
                             }
                             return true;
                         }
@@ -693,5 +708,39 @@ impl Operator {
             })
             .await
             .map_err(|e| anyhow!(e))
+    }
+
+    async fn get_lvm_volume_name(
+        &self,
+        user: &User,
+        instance: &Instance,
+    ) -> Result<Option<String>> {
+        let pvc_name = format!("{}-{}-rootfs", user.username, instance.name);
+        let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(self.client.clone(), NAMESPACE);
+        let pv_name = match pvcs.get(&pvc_name).await {
+            Ok(pvc) => pvc.spec.and_then(|s| s.volume_name).unwrap_or_default(),
+            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => {
+                return Ok(None);
+            }
+            Err(e) => {
+                return Err(anyhow!(e));
+            }
+        };
+        if pv_name.is_empty() {
+            return Ok(None);
+        }
+        let pvs: Api<PersistentVolume> = Api::all(self.client.clone());
+        match pvs.get(&pv_name).await {
+            Ok(pv) => {
+                let vg_name = pv
+                    .spec
+                    .and_then(|s| s.csi)
+                    .and_then(|s| s.volume_attributes)
+                    .and_then(|s| s.get("openebs.io/volgroup").map(|s| s.to_owned()));
+                Ok(vg_name)
+            }
+            Err(kube::Error::Api(ErrorResponse { code: 404, .. })) => Ok(None),
+            Err(e) => Err(anyhow!(e)),
+        }
     }
 }
