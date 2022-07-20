@@ -12,7 +12,7 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub async fn load(path: &str) -> Result<Self> {
+    pub async fn open(path: &str) -> Result<Self> {
         let mut state = State::new();
         match tokio::fs::read(path).await {
             Ok(contents) => {
@@ -41,11 +41,14 @@ impl Storage {
         let state = &mut *self.state.write().await;
         let mut new_state = state.clone();
         if f(&mut new_state) {
-            let data = serde_json::to_vec(&new_state).unwrap();
-            let tmp_path = format!("{}.tmp", self.path);
-            tokio::fs::write(&tmp_path, data).await?;
-            tokio::fs::rename(&tmp_path, &self.path).await?;
-            *state = new_state;
+            new_state.sync_allocated_resources();
+            if new_state != *state {
+                let data = serde_json::to_vec(&new_state).unwrap();
+                let tmp_path = format!("{}.tmp", self.path);
+                tokio::fs::write(&tmp_path, data).await?;
+                tokio::fs::rename(&tmp_path, &self.path).await?;
+                *state = new_state;
+            }
         }
         Ok(())
     }

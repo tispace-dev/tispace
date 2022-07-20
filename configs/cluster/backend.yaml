@@ -91,20 +91,58 @@ spec:
         - name: GOOGLE_CLIENT_ID
           valueFrom:
             secretKeyRef:
-              name: google-client
               key: google-client-id
+              name: google-client
         - name: DEFAULT_ROOTFS_IMAGE_TAG
           valueFrom:
             configMapKeyRef:
-              name: backend-env
               key: default-rootfs-image-tag
+              name: backend-env
+        - name: LXD_SERVER_URL
+          valueFrom:
+            configMapKeyRef:
+              key: lxd-server-url
+              name: backend-env
+        - name: LXD_CLIENT_CERT
+          value: /etc/tispace/lxd-client.p12
+        - name: LXD_STORAGE_POOL_MAPPING
+          valueFrom:
+            configMapKeyRef:
+              key: lxd-storage-pool-mapping
+              name: backend-env
+        - name: EXTERNAL_IP_POOL
+          valueFrom:
+            configMapKeyRef:
+              key: external-ip-pool
+              name: backend-env
+        - name: EXTERNAL_IP_PREFIX_LENGTH
+          valueFrom:
+            configMapKeyRef:
+              key: external-ip-prefix-length
+              name: backend-env
+        - name: CPU_OVERCOMMIT_FACTOR
+          valueFrom:
+            configMapKeyRef:
+              key: cpu-overcommit-factor
+              name: backend-env
+        - name: MEMORY_OVERCOMMIT_FACTOR
+          valueFrom:
+            configMapKeyRef:
+              key: memory-overcommit-factor
+              name: backend-env
         volumeMounts:
         - name: workdir
           mountPath: /workdir
+        - mountPath: /etc/tispace
+          name: lxd-client-cert
       volumes:
       - name: workdir
         persistentVolumeClaim:
           claimName: backend
+      - name: lxd-client-cert
+        secret:
+          defaultMode: 420
+          secretName: lxd-client-cert
 ---
 apiVersion: v1
 kind: Service

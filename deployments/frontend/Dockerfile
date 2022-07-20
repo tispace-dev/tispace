@@ -9,6 +9,7 @@ RUN yarn install --frozen-lockfile
 FROM node:lts-alpine AS builder
 
 ENV NODE_ENV=production
+ENV NEXT_PUBLIC_SERVER_URL=https://api.tispace.dev
 WORKDIR /opt/app
 COPY ./app/ .
 COPY --from=deps /opt/app/node_modules ./node_modules

@@ -28,11 +28,6 @@ spec:
       - name: frontend
         image: tispace/frontend:latest
         imagePullPolicy: IfNotPresent
-        command:
-        - "sh"
-        - "-c"
-        - |
-          ls ./.next/static/chunks/pages/index* | xargs  sed -i "s|G.env.NEXT_PUBLIC_SERVER_URL|\"$NEXT_PUBLIC_SERVER_URL\"|g" && "node_modules/.bin/next" "start"
         ports:
         - containerPort: 3000
         env:

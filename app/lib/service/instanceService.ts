@@ -7,6 +7,8 @@ export type CreateInstanceRequest = {
   disk_size: number
   image?: string
   runtime?: string
+  node_name?: string
+  storage_pool?: string
 }
 
 export type UpdateInstanceRequest = {
@@ -29,9 +31,12 @@ export type Instance = {
   image: string
   external_ip: string
   runtime: string
+  node_name: string
+  storage_pool: string
 }
 
 export enum InstanceStatus {
+  Creating = 'Creating',
   Starting = 'Starting',
   Running = 'Running',
   Stopping = 'Stopping',

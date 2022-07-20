@@ -10,15 +10,13 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::warn;
 
+use crate::env::GOOGLE_CLIENT_ID;
 use crate::error::AuthError;
 use crate::storage::Storage;
 
 static CLIENT: Lazy<Client> = Lazy::new(|| {
     let mut client = Client::new();
-    client
-        .audiences
-        .push(std::env::var("GOOGLE_CLIENT_ID").unwrap());
-
+    client.audiences.push(GOOGLE_CLIENT_ID.clone());
     client
 });
 
@@ -76,7 +74,7 @@ where
 
         let mut found = false;
         storage
-            .read_only(|state| found = state.users.iter().any(|u| u.username == username))
+            .read_only(|state| found = state.find_user(&username).is_some())
             .await;
         if found {
             Ok(UserClaims { username, email })

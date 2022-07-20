@@ -25,3 +25,6 @@ google-signin = { git = "https://github.com/hi-rustin/google-signin-rs" }
 rand = "0.8.4"
 either = "1.6"
 regex = "1.5"
+reqwest = { version = "0.11", features = ["json", "native-tls"] }
+k8s_quantity_parser = "0.0.1"
+prometheus = { version = "0.13", features = ["nightly"] }
