@@ -9,7 +9,7 @@ import { modalFormLayout, useResetFormOnCloseModal } from './modal'
 import { CreateInstanceRequest } from '../lib/service/instanceService'
 
 // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-export const nameRegex = /^(?![0-9]+$)(?!.*-$)(?!-)[a-z0-9-]{1,63}$/g
+const nameRegex = /^(?![0-9]+$)(?!.*-$)(?!-)[a-z0-9-]{1,63}$/g
 
 interface AddInstanceModalProps {
   visible: boolean
