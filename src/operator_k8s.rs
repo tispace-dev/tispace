@@ -329,6 +329,10 @@ impl Operator {
                     if instance.runtime != Runtime::Kata && instance.runtime != Runtime::Runc {
                         continue;
                     }
+                    // Wait for the scheduler to assign a node to the instance.
+                    if instance.status == InstanceStatus::Creating && instance.node_name.is_none() {
+                        continue;
+                    }
                     self.sync_instance(user, instance).await;
                 }
                 // If a user has no instance, delete the Service.
