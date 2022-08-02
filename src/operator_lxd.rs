@@ -31,7 +31,7 @@ impl Operator {
                 if instance.runtime != Runtime::Lxc && instance.runtime != Runtime::Kvm {
                     continue;
                 }
-                // Wait scheduler to allocate an IP address and schedule node and storage pool for this instance.
+                // Wait for the scheduler to allocate an IP address and schedule node and storage pool for this instance.
                 if instance.status == InstanceStatus::Creating
                     && (instance.external_ip.is_none()
                         || instance.node_name.is_none()

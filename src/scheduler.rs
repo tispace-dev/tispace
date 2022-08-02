@@ -81,16 +81,22 @@ impl Scheduler {
         let mut instances = Vec::new();
         for u in &mut state.users {
             for i in &mut u.instances {
+                if i.status != InstanceStatus::Creating {
+                    continue;
+                }
                 match i.runtime {
                     Runtime::Lxc | Runtime::Kvm => {
-                        if i.status == InstanceStatus::Creating
-                            && i.external_ip.is_some()
+                        if i.external_ip.is_some()
                             && (i.node_name.is_none() || i.storage_pool.is_none())
                         {
                             instances.push(i);
                         }
                     }
-                    _ => {}
+                    Runtime::Runc | Runtime::Kata => {
+                        if i.node_name.is_none() {
+                            instances.push(i);
+                        }
+                    }
                 }
             }
         }
@@ -174,11 +180,20 @@ impl Scheduler {
             best_node.memory_allocated += i.memory;
             best_node.storage_allocated += i.disk_size;
             i.node_name = Some(best_node.name.clone());
-            i.storage_pool = Some(best_storage_pool.name.clone());
-            info!(
-                "scheduled instance {} to node {} on storage pool {}",
-                i.name, best_node.name, best_storage_pool.name
-            );
+
+            match i.runtime {
+                Runtime::Lxc | Runtime::Kvm => {
+                    i.storage_pool = Some(best_storage_pool.name.clone());
+                    info!(
+                        "scheduled instance {} to node {} on storage pool {}",
+                        i.name, best_node.name, best_storage_pool.name
+                    );
+                }
+                Runtime::Runc | Runtime::Kata => {
+                    // Runc and Kata doesn't support specifying storage pool.
+                    info!("scheduled instance {} to node {}", i.name, best_node.name);
+                }
+            }
         }
     }
 }
