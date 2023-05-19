@@ -97,10 +97,8 @@ function UpdateInstanceModal({
             ]}
           >
             <Select>
-              <Select.Option value={Runtimes.Kata}>kata</Select.Option>
-              <Select.Option value={Runtimes.Runc}>runc</Select.Option>
-              <Select.Option value={Runtimes.Lxc}>lxc</Select.Option>
               <Select.Option value={Runtimes.Kvm}>kvm</Select.Option>
+              <Select.Option value={Runtimes.Lxc}>lxc</Select.Option>
             </Select>
           </Form.Item>
         </Form>
