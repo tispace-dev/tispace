@@ -1,12 +1,12 @@
 # Install dependencies only when needed
-FROM node:lts-alpine AS deps
+FROM node:16-alpine AS deps
 
 WORKDIR /opt/app
 COPY ./app/package.json ./app/yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 # Rebuild the source code only when needed
-FROM node:lts-alpine AS builder
+FROM node:16-alpine AS builder
 
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_SERVER_URL=https://api.tispace.dev
@@ -16,7 +16,7 @@ COPY --from=deps /opt/app/node_modules ./node_modules
 RUN yarn build
 
 # Production image, copy all the files and run next
-FROM node:lts-alpine AS runner
+FROM node:16-alpine AS runner
 
 WORKDIR /opt/app
 ENV NODE_ENV=production
