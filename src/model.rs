@@ -133,8 +133,8 @@ impl<'de> Deserialize<'de> for Runtime {
 impl Runtime {
     crate fn supported_images(&self) -> Vec<Image> {
         match self {
-            Runtime::Kata => vec![Image::CentOS7, Image::Ubuntu2004],
-            Runtime::Runc => vec![Image::CentOS7, Image::Ubuntu2004],
+            Runtime::Kata => Vec::new(),
+            Runtime::Runc => Vec::new(),
             Runtime::Lxc => vec![Image::CentOS7, Image::Ubuntu2004, Image::Ubuntu2204],
             Runtime::Kvm => vec![Image::CentOS7, Image::Ubuntu2004, Image::Ubuntu2204],
         }

@@ -5,8 +5,6 @@ export enum Images {
 }
 
 export enum Runtimes {
-  Kata = 'kata',
-  Runc = 'runc',
-  Lxc = 'lxc',
   Kvm = 'kvm',
+  Lxc = 'lxc',
 }
