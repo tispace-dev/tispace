@@ -1,7 +1,6 @@
 use std::{net::SocketAddr, time::Duration};
 
 use axum::{error_handling::HandleErrorLayer, Router};
-use kube::Client as KubeClient;
 use reqwest::{Client as ReqwestClient, Identity};
 use std::fs::File;
 use std::io::Read;
@@ -13,7 +12,6 @@ use tracing::{info, warn};
 use tispace::collector::Collector;
 use tispace::env::LXD_CLIENT_CERT;
 use tispace::error::handle_error;
-use tispace::operator_k8s::Operator as K8sOperator;
 use tispace::operator_lxd::Operator as LxdOperator;
 use tispace::scheduler::Scheduler;
 use tispace::service::{metrics_routes, protected_routes};
@@ -27,19 +25,6 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let s: Storage = Storage::open("state.json").await.unwrap();
-
-    let kube_client = match KubeClient::try_default().await {
-        Ok(client) => Some(client),
-        Err(e) => {
-            warn!("failed to create kube client: {:?}", e);
-            None
-        }
-    };
-    if let Some(kube_client) = kube_client.as_ref() {
-        let k8s_operator = K8sOperator::new(kube_client.clone(), s.clone());
-        tokio::spawn(async move { k8s_operator.run().await });
-        info!("k8s operator started");
-    }
 
     let mut lxd_client = None;
     if !LXD_CLIENT_CERT.is_empty() {
@@ -62,7 +47,7 @@ async fn main() {
         warn!("lxd client cert not provided, will not start lxd operator");
     }
 
-    let collector = Collector::new(s.clone(), kube_client, lxd_client);
+    let collector = Collector::new(s.clone(), None, lxd_client);
     tokio::spawn(async move { collector.run().await });
     info!("collector started");
 
