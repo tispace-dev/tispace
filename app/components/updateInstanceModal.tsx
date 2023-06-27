@@ -64,7 +64,7 @@ function UpdateInstanceModal({
           >
             <InputNumber
               min={1}
-              max={16}
+              max={32}
               addonBefore={<BsFillCpuFill />}
               addonAfter="Core"
             />
