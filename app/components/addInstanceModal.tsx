@@ -100,7 +100,7 @@ function AddInstanceModal({
           >
             <InputNumber
               min={1}
-              max={32}
+              max={16}
               addonBefore={<BsFillCpuFill />}
               addonAfter="Core"
             />
