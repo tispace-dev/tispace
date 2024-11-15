@@ -474,6 +474,7 @@ chpasswd:
 fn get_image_alias(image: &Image) -> Result<String> {
     match image {
         Image::CentOS7 => Ok("centos/7/cloud".to_owned()),
+        Image::CentOS9Stream => Ok("centos/9-Stream/cloud".to_owned()),
         Image::Ubuntu2004 => Ok("ubuntu/20.04/cloud".to_owned()),
         Image::Ubuntu2204 => Ok("ubuntu/22.04/cloud".to_owned()),
         _ => Err(anyhow!("invalid image {}", image)),
