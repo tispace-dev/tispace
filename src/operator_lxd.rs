@@ -156,7 +156,7 @@ chpasswd:
             instance.name, instance.name, instance.password
         );
         let network_config = match instance.image {
-            Image::CentOS7 | Image::CentOS8 => {
+            Image::CentOS7 | Image::CentOS8 | Image::CentOS9Stream => {
                 format!(
                     r#"network:
   version: 1
