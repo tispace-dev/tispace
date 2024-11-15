@@ -1,5 +1,5 @@
 export enum Images {
-  CentOS9 = 'centos:9-stream',
+  CentOS9 = 'centos:9-Stream',
   Ubuntu2004 = 'ubuntu:20.04',
   Ubuntu2204 = 'ubuntu:22.04',
 }
