@@ -155,6 +155,7 @@ impl Runtime {
 crate enum Image {
     CentOS7,
     CentOS8,
+    CentOS9Stream,
     Ubuntu2004,
     Ubuntu2204,
 }
@@ -164,6 +165,7 @@ impl fmt::Display for Image {
         match self {
             Image::CentOS7 => write!(f, "centos:7"),
             Image::CentOS8 => write!(f, "centos:8"),
+            Image::CentOS9Stream => write!(f, "centos:9-stream"),
             Image::Ubuntu2004 => write!(f, "ubuntu:20.04"),
             Image::Ubuntu2204 => write!(f, "ubuntu:22.04"),
         }
@@ -181,12 +183,18 @@ impl FromStr for Image {
         if lower.starts_with("tispace/centos8:") {
             return Ok(Self::CentOS8);
         }
+        if lower.starts_with("tispace/centos9-stream:") {
+            return Ok(Self::CentOS9Stream);
+        }
         if lower.starts_with("tispace/ubuntu2004:") {
             return Ok(Self::Ubuntu2004);
         }
         return match lower.as_str() {
             "tispace/centos7" | "centos7" | "centos:7" => Ok(Self::CentOS7),
             "tispace/centos8" | "centos8" | "centos:8" => Ok(Self::CentOS8),
+            "tispace/centos9-stream" | "centos9-stream" | "centos:9-stream" => {
+                Ok(Self::CentOS9Stream)
+            }
             "tispace/ubuntu2004" | "ubuntu2004" | "ubuntu:20.04" => Ok(Self::Ubuntu2004),
             "ubuntu2204" | "ubuntu:22.04" => Ok(Self::Ubuntu2204),
             _ => Err(anyhow!("invalid image {}", s)),

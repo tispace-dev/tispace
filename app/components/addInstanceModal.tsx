@@ -50,7 +50,7 @@ function AddInstanceModal({
             cpu: 8,
             memory: 16,
             disk_size: 80,
-            image: Images.CentOS7,
+            image: Images.CentOS9,
             runtime: Runtimes.Kvm,
           }}
         >
