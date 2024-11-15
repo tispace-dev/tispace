@@ -135,8 +135,18 @@ impl Runtime {
         match self {
             Runtime::Kata => Vec::new(),
             Runtime::Runc => Vec::new(),
-            Runtime::Lxc => vec![Image::CentOS7, Image::Ubuntu2004, Image::Ubuntu2204],
-            Runtime::Kvm => vec![Image::CentOS7, Image::Ubuntu2004, Image::Ubuntu2204],
+            Runtime::Lxc => vec![
+                Image::CentOS7,
+                Image::CentOS9Stream,
+                Image::Ubuntu2004,
+                Image::Ubuntu2204,
+            ],
+            Runtime::Kvm => vec![
+                Image::CentOS7,
+                Image::CentOS9Stream,
+                Image::Ubuntu2004,
+                Image::Ubuntu2204,
+            ],
         }
     }
 
