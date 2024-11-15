@@ -79,7 +79,7 @@ function AddInstanceModal({
             ]}
           >
             <Select>
-              <Select.Option value={Images.CentOS9}>centos:9-stream</Select.Option>
+              <Select.Option value={Images.CentOS9}>centos:9-Stream</Select.Option>
               <Select.Option value={Images.Ubuntu2004}>
                 ubuntu:20.04
               </Select.Option>

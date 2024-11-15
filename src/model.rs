@@ -175,7 +175,7 @@ impl fmt::Display for Image {
         match self {
             Image::CentOS7 => write!(f, "centos:7"),
             Image::CentOS8 => write!(f, "centos:8"),
-            Image::CentOS9Stream => write!(f, "centos:9-stream"),
+            Image::CentOS9Stream => write!(f, "centos:9-Stream"),
             Image::Ubuntu2004 => write!(f, "ubuntu:20.04"),
             Image::Ubuntu2204 => write!(f, "ubuntu:22.04"),
         }
@@ -193,7 +193,7 @@ impl FromStr for Image {
         if lower.starts_with("tispace/centos8:") {
             return Ok(Self::CentOS8);
         }
-        if lower.starts_with("tispace/centos9-stream:") {
+        if lower.starts_with("tispace/centos9-Stream:") {
             return Ok(Self::CentOS9Stream);
         }
         if lower.starts_with("tispace/ubuntu2004:") {
@@ -202,7 +202,7 @@ impl FromStr for Image {
         return match lower.as_str() {
             "tispace/centos7" | "centos7" | "centos:7" => Ok(Self::CentOS7),
             "tispace/centos8" | "centos8" | "centos:8" => Ok(Self::CentOS8),
-            "tispace/centos9-stream" | "centos9-stream" | "centos:9-stream" => {
+            "tispace/centos9-Stream" | "centos9-Stream" | "centos:9-Stream" => {
                 Ok(Self::CentOS9Stream)
             }
             "tispace/ubuntu2004" | "ubuntu2004" | "ubuntu:20.04" => Ok(Self::Ubuntu2004),
