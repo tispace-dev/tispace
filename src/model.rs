@@ -202,7 +202,7 @@ impl FromStr for Image {
         return match lower.as_str() {
             "tispace/centos7" | "centos7" | "centos:7" => Ok(Self::CentOS7),
             "tispace/centos8" | "centos8" | "centos:8" => Ok(Self::CentOS8),
-            "tispace/centos9-stream" | "centos9-stream" | "centos:9-stream" => {
+            "tispace/centos9-stream" | "centos9-stream" | "centos:9-stream" | "centos9stream" => {
                 Ok(Self::CentOS9Stream)
             }
             "tispace/ubuntu2004" | "ubuntu2004" | "ubuntu:20.04" => Ok(Self::Ubuntu2004),
