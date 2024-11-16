@@ -5,6 +5,5 @@ export enum Images {
 }
 
 export enum Runtimes {
-  Kvm = 'kvm',
   Lxc = 'lxc',
 }

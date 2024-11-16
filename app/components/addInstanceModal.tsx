@@ -51,7 +51,7 @@ function AddInstanceModal({
             memory: 16,
             disk_size: 80,
             image: Images.CentOS9,
-            runtime: Runtimes.Kvm,
+            runtime: Runtimes.Lxc,
           }}
         >
           <Form.Item
@@ -147,7 +147,6 @@ function AddInstanceModal({
             ]}
           >
             <Select>
-              <Select.Option value={Runtimes.Kvm}>kvm</Select.Option>
               <Select.Option value={Runtimes.Lxc}>lxc</Select.Option>
             </Select>
           </Form.Item>
